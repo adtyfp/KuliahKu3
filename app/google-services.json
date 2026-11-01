@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "859529725982",
+    "firebase_url": "https://kuliahku2-f6163-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "kuliahku2-f6163",
+    "storage_bucket": "kuliahku2-f6163.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859529725982:android:2d51dcc522a139de7e060f",
+        "android_client_info": {
+          "package_name": "com.kuliahku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXitCzamAG_yty1-xnDNWXA9ETW1nNols"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#0F79DC"
+        android:pathData="M60,60m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0" />
+
+    <!-- Stylized 'K' or Book Shape -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,35 L40,85 L50,85 L50,65 L70,85 L85,85 L60,60 L85,35 L70,35 L50,55 L50,35 Z" />
+
+    <!-- Graduation Cap Detail -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,20 L80,30 L60,40 L40,30 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78,31 L78,45 C78,45 78,48 80,48"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"/>
+
+</vector>
