@@ -25,7 +25,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -76,25 +80,25 @@ private class TaskPalette(
 )
 
 private val LightTaskPalette = TaskPalette(
-    background = Color(0xFFFBFCFF),
+    background = Color(0xFFF8FAFF), // Senada dengan Beranda
     surface = Color.White,
-    border = Color(0xFFDEDEDE),
-    textPrimary = Color.Black,
-    textSecondary = Color(0xFF999999),
-    chipSelected = Color(0xFF0F79DC),
-    chipBorder = Color(0xFFDBDBDB),
-    chipText = Color(0xFF737373),
-    filterBg = Color(0xFF7BBFFF),
-    filterBorder = Color(0xFF00A1FF),
-    filterIcon = Color(0xFF0073DF),
-    searchBorder = Color(0xFFB3B3B3),
-    fab = Color(0xFF0F79DC),
-    shadowAlpha = 0.08f,
-    high = BadgeTone(Color(0xFFFFD8D8), Color(0xFFFF8282), Color(0xFFFF0000)),
-    medium = BadgeTone(Color(0xFFFFFBC9), Color(0xFFFFDB79), Color(0xFFBE8100)),
-    low = BadgeTone(Color(0xFFD5FFE0), Color(0xFFA5FF86), Color(0xFF00AE03)),
-    actionRed = BadgeTone(Color(0xFFF8CDCD), Color(0xFFFB7B7B), Color(0xFFFF0303)),
-    actionGreen = BadgeTone(Color(0xFFC3FFD2), Color(0xFF97E47E), Color(0xFF096F00))
+    border = Color(0xFFE2E8F0), // Border halus slate
+    textPrimary = Color(0xFF1E293B), // Teks utama dark slate
+    textSecondary = Color(0xFF64748B), // Teks sekunder slate gray
+    chipSelected = Color(0xFF3B82F6), // Biru modern
+    chipBorder = Color(0xFFE2E8F0),
+    chipText = Color(0xFF475569),
+    filterBg = Color(0xFFF1F5F9),
+    filterBorder = Color(0xFFCBD5E1),
+    filterIcon = Color(0xFF64748B),
+    searchBorder = Color(0xFFCBD5E1),
+    fab = Color(0xFF2563EB),
+    shadowAlpha = 0.08f, // Ditingkatkan agar lebih hidup
+    high = BadgeTone(Color(0xFFFEF2F2), Color(0xFFFECACA), Color(0xFFEF4444)),
+    medium = BadgeTone(Color(0xFFFFFBEB), Color(0xFFFDE68A), Color(0xFFD97706)),
+    low = BadgeTone(Color(0xFFF0FDF4), Color(0xFFBBF7D0), Color(0xFF16A34A)),
+    actionRed = BadgeTone(Color(0xFFFEF2F2), Color(0xFFFCA5A5), Color(0xFFEF4444)),
+    actionGreen = BadgeTone(Color(0xFFECFDF5), Color(0xFFA7F3D0), Color(0xFF10B981))
 )
 
 private val DarkTaskPalette = TaskPalette(
@@ -167,7 +171,7 @@ fun TasksScreen(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            Icons.Filled.ArrowBackIosNew,
+                            rememberBackIcon(),
                             contentDescription = "Kembali",
                             modifier = Modifier.size(24.dp),
                             tint = p.textPrimary
@@ -177,9 +181,9 @@ fun TasksScreen(
                     Text(
                         "Tugas",
                         style = MaterialTheme.typography.headlineMedium.copy(
-                            fontSize = 26.sp,
-                            lineHeight = 36.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontSize = 24.sp,
+                            lineHeight = 32.sp,
+                            fontWeight = FontWeight.ExtraBold
                         ),
                         color = p.textPrimary
                     )
@@ -216,16 +220,28 @@ fun TasksScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Outlined.FilterAlt,
+                            rememberFilterIcon(),
                             contentDescription = "Filter",
                             tint = p.filterIcon,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
+
+            // ── AI Advice Section ─────────────────────────────
+            if (state.isAiLoading || state.aiAdvice != null) {
+                AnimatedEntry(delay = 250) {
+                    AiAdviceCard(
+                        advice = state.aiAdvice,
+                        isLoading = state.isAiLoading,
+                        p = p
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+            }
 
             // ── Daftar tugas: kartu 88 dp, jarak 5 dp ─────────────────────────────
             Box(Modifier.weight(1f)) {
@@ -279,10 +295,10 @@ fun TasksScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Filled.Add,
+                        rememberPlusIcon(),
                         contentDescription = "Tambah tugas",
                         tint = Color.White,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(30.dp)
                     )
                 }
             }
@@ -306,8 +322,9 @@ private fun TaskFilterChip(label: String, selected: Boolean, p: TaskPalette, onC
     ) {
         Text(
             label,
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
             softWrap = false,
             textAlign = TextAlign.Center,
@@ -329,14 +346,14 @@ private fun TaskSearchBar(
             .clip(CircleShape)
             .background(p.surface)
             .border(1.dp, p.searchBorder, CircleShape)
-            .padding(start = 14.dp, end = 18.dp),
+            .padding(start = 16.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            Icons.Filled.Search,
+            rememberSearchIcon(),
             contentDescription = null,
-            tint = p.textPrimary,
-            modifier = Modifier.size(28.dp)
+            tint = p.textSecondary,
+            modifier = Modifier.size(24.dp)
         )
         Spacer(Modifier.width(12.dp))
         BasicTextField(
@@ -344,11 +361,23 @@ private fun TaskSearchBar(
             onValueChange = onQueryChange,
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 16.sp,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
                 color = p.textPrimary
             ),
             cursorBrush = SolidColor(p.textPrimary),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            decorationBox = { innerTextField ->
+                if (query.isEmpty()) {
+                    Text(
+                        "Cari tugas...",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = p.textSecondary
+                    )
+                }
+                innerTextField()
+            }
         )
     }
 }
@@ -415,7 +444,7 @@ fun TaskCardStyled(task: Task, onClick: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(
                     task.title,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     lineHeight = 20.sp,
                     maxLines = 1,
@@ -472,27 +501,107 @@ fun TaskCardStyled(task: Task, onClick: () -> Unit) {
 private fun TaskBadge(
     text: String,
     tone: BadgeTone,
-    modifier: Modifier,
-    horizontalPadding: Dp
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 7.dp
 ) {
-    val shape = RoundedCornerShape(8.dp)
-    Box(
-        modifier = modifier
-            .height(24.dp)
-            .clip(shape)
-            .background(tone.bg)
-            .border(1.dp, tone.border, shape)
-            .padding(horizontal = horizontalPadding),
-        contentAlignment = Alignment.Center
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = tone.bg,
+        border = BorderStroke(1.dp, tone.border)
     ) {
         Text(
-            text,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+            text = text,
             color = tone.text,
-            maxLines = 1,
-            softWrap = false
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 2.dp),
+            textAlign = TextAlign.Center
         )
     }
+}
+
+@Composable
+private fun AiAdviceCard(advice: String?, isLoading: Boolean, p: TaskPalette) {
+    val shape = RoundedCornerShape(16.dp)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                4.dp, shape,
+                ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
+                spotColor = Color.Black.copy(alpha = p.shadowAlpha)
+            ),
+        shape = shape,
+        color = p.surface,
+        border = BorderStroke(1.dp, p.border)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✨", fontSize = 18.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "AI Smart Recommendation",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = p.chipSelected
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            if (isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().height(2.dp).clip(CircleShape),
+                    color = p.chipSelected,
+                    trackColor = p.border
+                )
+            } else {
+                Text(
+                    text = advice ?: "",
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = p.textPrimary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberBackIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Back", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(15f, 18f); lineTo(9f, 12f); lineTo(15f, 6f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberFilterIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Filter", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(22f, 3f); horizontalLineTo(2f); lineTo(10f, 12.46f); verticalLineTo(19f); lineTo(14f, 21f); verticalLineTo(12.46f); lineTo(22f, 3f); close()
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberSearchIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Search", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(11f, 19f)
+            arcTo(8f, 8f, 0f, true, true, 11f, 3f)
+            arcTo(8f, 8f, 0f, true, true, 11f, 19f)
+            moveTo(21f, 21f); lineTo(16.65f, 16.65f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberPlusIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Plus", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2.5f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(12f, 5f); verticalLineTo(19f)
+            moveTo(5f, 12f); horizontalLineTo(19f)
+        }
+    }.build()
 }

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kuliahku.data.model.Transaction
 import com.kuliahku.data.repository.TransactionRepository
+import com.kuliahku.ai.AiRepository
+import com.kuliahku.ai.AiResult
 import com.kuliahku.util.FinanceStats
 import com.kuliahku.util.MonthKey
 import com.kuliahku.util.MonthlySummary
@@ -28,7 +30,9 @@ data class FinanceUiState(
     val chartTab: ChartTab = ChartTab.CHART,
     val chartType: TxChartType = TxChartType.EXPENSE,
     val pendingDelete: Transaction? = null,
-    val exportInProgress: Boolean = false
+    val exportInProgress: Boolean = false,
+    val aiInsight: String? = null,
+    val isAiLoading: Boolean = false
 )
 
 enum class ChartTab { CHART, TABLE }
@@ -41,7 +45,8 @@ sealed interface FinanceEvent {
 
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
-    private val repo: TransactionRepository
+    private val repo: TransactionRepository,
+    private val aiRepo: AiRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FinanceUiState())
@@ -60,18 +65,33 @@ class FinanceViewModel @Inject constructor(
                     val yearKey = s.currentYear.toString()
                     val monthList = list.filter { it.monthKey == monthKey }
                     val yearList = list.filter { it.yearKey == yearKey }
+                    val monthlySummary = FinanceStats.monthlySummary(monthList)
                     _uiState.update {
                         it.copy(
                             monthTransactions = monthList,
                             yearTransactions = yearList,
-                            monthlySummary = FinanceStats.monthlySummary(monthList),
+                            monthlySummary = monthlySummary,
                             yearlySummary = FinanceStats.yearlySummary(yearList),
                             latestTransactions = monthList.sortedByDescending { t -> t.date?.toDate()?.time ?: 0L }.take(3),
                             isLoading = false,
                             error = null
                         )
                     }
+                    if (monthList.isNotEmpty()) fetchAiInsight(monthlySummary)
                 }
+        }
+    }
+
+    private fun fetchAiInsight(summary: MonthlySummary) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAiLoading = true) }
+            val result = aiRepo.getFinanceInsight(summary)
+            _uiState.update {
+                it.copy(
+                    isAiLoading = false,
+                    aiInsight = if (result is AiResult.Success) result.data else null
+                )
+            }
         }
     }
 

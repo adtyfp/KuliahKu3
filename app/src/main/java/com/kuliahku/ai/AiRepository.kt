@@ -58,6 +58,20 @@ class AiRepository @Inject constructor(
         parseKeywords(raw)
     }
 
+    suspend fun getTaskPrioritizationAdvice(tasks: List<com.kuliahku.data.model.Task>): AiResult<String> = call {
+        val tasksJson = tasks.joinToString(",", "[", "]") {
+            """{"title":"${it.title}","deadline":"${it.deadline?.toDate()}","priority":"${it.priority}"}"""
+        }
+        val response = client.get().generateContent(Prompts.taskPrioritization(tasksJson))
+        response.text ?: ""
+    }
+
+    suspend fun getFinanceInsight(summary: com.kuliahku.util.MonthlySummary): AiResult<String> = call {
+        val json = """{"totalIncome":${summary.totalIncome},"totalExpense":${summary.totalExpense}}"""
+        val response = client.get().generateContent(Prompts.financeInsight(json))
+        response.text ?: ""
+    }
+
     private suspend fun <T> call(block: suspend () -> T): AiResult<T> {
         return try {
             val data = withTimeout(60_000) { block() }

@@ -1,6 +1,7 @@
 package com.kuliahku.ui.notes
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -193,7 +194,8 @@ private fun NoteCard(note: Note, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        shadowElevation = 6.dp, // Ditingkatkan dari 2.dp agar lebih hidup
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
         Column(Modifier.padding(16.dp)) {

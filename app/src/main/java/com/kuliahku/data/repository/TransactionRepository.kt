@@ -33,7 +33,11 @@ class TransactionRepository @Inject constructor(
         val listener = col(uid)
             .orderBy("date", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("TransactionRepository", "Error observing transactions: ${err.message}")
+                    trySend(emptyList())
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.documents?.mapNotNull { it.toObject(Transaction::class.java) } ?: emptyList())
             }
         awaitClose { listener.remove() }

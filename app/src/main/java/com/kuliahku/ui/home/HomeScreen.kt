@@ -1,7 +1,5 @@
 package com.kuliahku.ui.home
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -12,16 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.*
@@ -36,32 +24,33 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.kuliahku.data.model.Task
 import com.kuliahku.data.model.TaskStatus
-import com.kuliahku.ui.components.*
 import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.navigation.Routes
-import com.kuliahku.ui.theme.*
 import com.kuliahku.util.DateFormatters
-import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 // ---------------------------------------------------------------------------
 // Palet warna Beranda (Light = sesuai Beranda.png, Dark = turunan konsisten).
 // Mode gelap/terang dideteksi dari MaterialTheme.colorScheme.background,
 // sehingga mengikuti tema aplikasi (bukan hanya setelan sistem).
+// Field gauge* dipakai oleh kartu progres (gauge setengah lingkaran) dan tetap
+// berada di keluarga warna biru tema aplikasi.
 // ---------------------------------------------------------------------------
 private class Tone(val container: Color, val accent: Color)
 private class MenuTone(val container: Color, val border: Color, val icon: Color)
@@ -78,11 +67,18 @@ private class HomePalette(
     val menuLabel: Color,
     val done: Color,
     val checkOutline: Color,
+    val statIconTotal: Color,
+    val statIconUpcoming: Color,
+    val statIconDone: Color,
+    val statIconLate: Color,
     val shadowAlpha: Float,
-    val ringTrack: Color,
-    val ringStart: Color,
-    val ringMid: Color,
-    val ringEnd: Color,
+    val gaugeHalo: Color,
+    val gaugeTrack: Color,
+    val gaugeLow: Color,
+    val gaugeMid: Color,
+    val gaugeHigh: Color,
+    val gaugeTick: Color,
+    val gaugeDot: Color,
     val statTotal: Tone,
     val statUpcoming: Tone,
     val statDone: Tone,
@@ -94,30 +90,37 @@ private class HomePalette(
 )
 
 private val LightPalette = HomePalette(
-    background = Color(0xFFFBFCFF),
-    progressCard = Color(0xFFF3F6FF),
+    background = Color(0xFFF8FAFF), // Latar belakang putih kebiruan bersih
+    progressCard = Color(0xFFF1F5F9), // Kartu progres biru sangat muda
     surface = Color.White,
-    border = Color(0xFFD3D3DA),
-    textPrimary = Color.Black,
-    textSecondary = Color(0xFF6E6E6E),
-    greeting = Color(0xFF7D7D7D),
-    nim = Color(0xFF8A8A8A),
-    menuLabel = Color(0xFF555555),
-    done = Color(0xFF21A121),
-    checkOutline = Color(0xFF6E6E6E),
-    shadowAlpha = 0.10f,
-    ringTrack = Color(0xFFE6EAF8),
-    ringStart = Color(0xFFC7D5F7),
-    ringMid = Color(0xFF0A2A9E),
-    ringEnd = Color(0xFF1A66E0),
-    statTotal = Tone(Color(0xFFD3DDF8), Color(0xFF0000FF)),
-    statUpcoming = Tone(Color(0xFFDCE6F8), Color(0xFF1A2FD6)),
-    statDone = Tone(Color(0xFFC6FAC6), Color(0xFF1E9E1E)),
-    statLate = Tone(Color(0xFFFFB0B0), Color(0xFFE02020)),
-    menuTasks = MenuTone(Color(0xFFD9DEFA), Color(0xFF1010E8), Color(0xFF1B1BA8)),
-    menuNotes = MenuTone(Color(0xFFFFE8C2), Color(0xFFF08C00), Color(0xFFE08A10)),
-    menuCalendar = MenuTone(Color(0xFFCDF7CD), Color(0xFF1BA81B), Color(0xFF148A14)),
-    menuFinance = MenuTone(Color(0xFFFFB9B9), Color(0xFFD81B1B), Color(0xFFD01818))
+    border = Color(0xFFE2E8F0), // Garis tepi halus (slate)
+    textPrimary = Color(0xFF1E293B), // Teks utama (dark slate)
+    textSecondary = Color(0xFF64748B), // Teks sekunder (slate gray)
+    greeting = Color(0xFF475569),
+    nim = Color(0xFF94A3B8),
+    menuLabel = Color(0xFF334155),
+    done = Color(0xFF10B981), // Emerald green
+    checkOutline = Color(0xFFCBD5E1),
+    statIconTotal = Color(0xFF2563EB),
+    statIconUpcoming = Color(0xFF0EA5E9),
+    statIconDone = Color(0xFF10B981),
+    statIconLate = Color(0xFFEF4444),
+    shadowAlpha = 0.08f, // Sedikit ditingkatkan agar lebih 'hidup'
+    gaugeHalo = Color(0xFFDBEAFE),
+    gaugeTrack = Color(0xFFF1F5F9),
+    gaugeLow = Color(0xFF93C5FD),
+    gaugeMid = Color(0xFF60A5FA),
+    gaugeHigh = Color(0xFF3B82F6),
+    gaugeTick = Color(0xFF94A3B8),
+    gaugeDot = Color.White,
+    statTotal = Tone(Color(0xFFEFF6FF), Color(0xFF2563EB)),
+    statUpcoming = Tone(Color(0xFFF0F9FF), Color(0xFF0EA5E9)),
+    statDone = Tone(Color(0xFFECFDF5), Color(0xFF10B981)),
+    statLate = Tone(Color(0xFFFEF2F2), Color(0xFFEF4444)),
+    menuTasks = MenuTone(Color(0xFFEEF2FF), Color(0xFF6366F1), Color(0xFF4F46E5)),
+    menuNotes = MenuTone(Color(0xFFFFF7ED), Color(0xFFF97316), Color(0xFFEA580C)),
+    menuCalendar = MenuTone(Color(0xFFF0FDF4), Color(0xFF22C55E), Color(0xFF16A34A)),
+    menuFinance = MenuTone(Color(0xFFFFF1F2), Color(0xFFF43F5E), Color(0xFFE11D48))
 )
 
 private val DarkPalette = HomePalette(
@@ -132,11 +135,18 @@ private val DarkPalette = HomePalette(
     menuLabel = Color(0xFFB4BCD4),
     done = Color(0xFF2FBF71),
     checkOutline = Color(0xFF8B93AE),
+    statIconTotal = Color(0xFF6C94FF),
+    statIconUpcoming = Color(0xFF7BA0FF),
+    statIconDone = Color(0xFF3DD083),
+    statIconLate = Color(0xFFFF6B7A),
     shadowAlpha = 0.45f,
-    ringTrack = Color(0xFF263050),
-    ringStart = Color(0xFF2B4A9A),
-    ringMid = Color(0xFF3B6FE8),
-    ringEnd = Color(0xFF7DB2FF),
+    gaugeHalo = Color(0xFF3B6FE8),
+    gaugeTrack = Color(0xFF1F2A4A),
+    gaugeLow = Color(0xFF2B4A9A),
+    gaugeMid = Color(0xFF3B6FE8),
+    gaugeHigh = Color(0xFF5E88F0),
+    gaugeTick = Color(0xFF8B93AE),
+    gaugeDot = Color(0xFFB8C8FF),
     statTotal = Tone(Color(0xFF1C2B55), Color(0xFF6C94FF)),
     statUpcoming = Tone(Color(0xFF1B2A4A), Color(0xFF7BA0FF)),
     statDone = Tone(Color(0xFF14362A), Color(0xFF3DD083)),
@@ -181,48 +191,51 @@ fun HomeScreen(
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Selamat ${state.greeting},",
-                        fontSize = 20.sp,
-                        lineHeight = 27.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Medium,
                         color = p.greeting
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             state.user?.name ?: "Aditya Fajar P",
                             fontSize = 24.sp,
-                            lineHeight = 31.sp,
-                            fontWeight = FontWeight.Bold,
+                            lineHeight = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
                             color = p.textPrimary
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("👋", fontSize = 24.sp)
+                        Text("👋", fontSize = 22.sp)
                     }
                     Text(
                         state.user?.nim ?: "26552011092",
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.Normal,
                         color = p.nim
                     )
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        "Sekarang ada agenda apa hari ini",
+                        "Sekarang ada agenda apa hari ini?",
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = p.textPrimary
+                        fontWeight = FontWeight.Medium,
+                        color = p.textSecondary
                     )
                 }
                 Box(
                     Modifier
                         .padding(top = 10.dp, end = 13.dp)
-                        .size(32.dp)
-                        .clickable { /* Inbox */ }
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .clickable { /* Inbox */ },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Filled.MailOutline,
+                        rememberMailIcon(),
                         contentDescription = null,
                         tint = p.textPrimary,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.size(24.dp)
                     )
                     Box(
                         Modifier
@@ -239,71 +252,67 @@ fun HomeScreen(
 
         Spacer(Modifier.height(13.dp))
 
-        // ---------------- Progres Harianku ----------------
+        // ---------------- Progres Tugasku (gauge setengah lingkaran) ----------------
+        // Proporsi kartu mengikuti referensi (442 : 323). Semua ukuran di dalamnya
+        // diskalakan dari lebar kartu, jadi tampilannya tetap proporsional di semua layar.
         AnimatedEntry(delay = 200) {
+            val cardShape = RoundedCornerShape(28.dp)
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(204.dp)
-                    .shadow(8.dp, RoundedCornerShape(28.dp), ambientColor = shadowColor, spotColor = shadowColor),
-                shape = RoundedCornerShape(28.dp),
+                    .aspectRatio(442f / 323f)
+                    .shadow(8.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor),
+                shape = cardShape,
                 color = p.progressCard,
                 border = BorderStroke(2.dp, p.border)
             ) {
-                Column(Modifier.padding(start = 27.dp, end = 17.dp, top = 16.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val progress = state.taskProgress
+                val tasksDone = state.tasksDone
+                val tasksTotal = state.tasksTotal
+                val motivation = state.motivation
+
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val u = this.maxWidth.value / 442f
+
+                    ProgressGauge(
+                        progress = progress,
+                        p = p,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = (160f * u).dp, start = 12.dp, end = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
-                            "Progres Tugasku",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            lineHeight = 24.sp,
+                            "${(progress * 100).toInt()}%",
+                            fontSize = (52f * u).sp,
+                            lineHeight = (56f * u).sp,
+                            fontWeight = FontWeight.ExtraBold,
                             color = p.textPrimary
                         )
-                        Spacer(Modifier.weight(1f))
-                        Icon(
-                            Icons.Filled.ChevronRight,
-                            contentDescription = null,
-                            tint = p.textPrimary,
-                            modifier = Modifier.size(24.dp)
+                        Spacer(Modifier.height((16f * u).dp))
+                        Text(
+                            "$tasksDone dari $tasksTotal tugas selesai",
+                            fontSize = (20f * u).sp,
+                            lineHeight = (28f * u).sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = p.textPrimary,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
                         )
-                    }
-                    Spacer(Modifier.height(11.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(contentAlignment = Alignment.Center) {
-                            GradientProgressRing(
-                                progress = state.taskProgress,
-                                ringSize = 122.dp,
-                                strokeWidth = 17.dp,
-                                trackColor = p.ringTrack,
-                                startColor = p.ringStart,
-                                midColor = p.ringMid,
-                                endColor = p.ringEnd
-                            )
-                            Text(
-                                "${(state.taskProgress * 100).toInt()}%",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp,
-                                color = p.textPrimary
-                            )
-                        }
-                        Spacer(Modifier.width(18.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "${state.tasksDone} dari ${state.tasksTotal} tugas selesai",
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = p.textPrimary
-                            )
-                            Spacer(Modifier.height(9.dp))
-                            Text(
-                                state.motivation.ifBlank { "Tetap semangat!\nKamu pasti bisa" },
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = p.textSecondary
-                            )
-                        }
+                        Spacer(Modifier.height((4f * u).dp))
+                        Text(
+                            motivation.ifBlank { "Tetap semangat! Kamu pasti bisa" }.replace("\n", " "),
+                            fontSize = (14f * u).sp,
+                            lineHeight = (19f * u).sp,
+                            fontWeight = FontWeight.Normal,
+                            color = p.textSecondary,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
                     }
                 }
             }
@@ -315,49 +324,49 @@ fun HomeScreen(
         AnimatedEntry(delay = 300) {
             Column {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                    StatCardMini("Total Tugas", state.stats.total.toString(), p.statTotal.container, Icons.Filled.CheckCircle, p.statTotal.accent, Modifier.weight(1f))
-                    StatCardMini("Belum Selesai", state.stats.upcoming.toString(), p.statUpcoming.container, Icons.Outlined.AccessTime, p.statUpcoming.accent, Modifier.weight(1f))
+                    StatCardMini("Total Tugas", state.stats.total.toString(), p.statTotal.container, rememberClipboardListIcon(), p.statIconTotal, Modifier.weight(1f))
+                    StatCardMini("On Progress", state.stats.upcoming.toString(), p.statUpcoming.container, rememberClockIcon(), p.statIconUpcoming, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                    StatCardMini("Selesai", state.stats.done.toString(), p.statDone.container, Icons.Filled.CheckCircle, p.statDone.accent, Modifier.weight(1f))
-                    StatCardMini("Terlambat", state.stats.overdue.toString(), p.statLate.container, Icons.Outlined.Timer, p.statLate.accent, Modifier.weight(1f))
+                    StatCardMini("Selesai", state.stats.done.toString(), p.statDone.container, rememberCheckCircleIcon(), p.statIconDone, Modifier.weight(1f))
+                    StatCardMini("Terlambat", state.stats.overdue.toString(), p.statLate.container, rememberAlertCircleIcon(), p.statIconLate, Modifier.weight(1f))
                 }
             }
         }
 
-        Spacer(Modifier.height(13.dp))
+        Spacer(Modifier.height(28.dp))
         AnimatedEntry(delay = 350) {
             Text(
                 "Menu Aksi",
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 lineHeight = 28.sp,
                 color = p.textPrimary
             )
         }
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(14.dp))
 
         // ---------------- Menu Aksi ----------------
         AnimatedEntry(delay = 400) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MenuActionButton(rememberClipboardPlusIcon(), "Tugas", p.menuTasks.border, p.menuTasks.icon, containerColor = p.menuTasks.container) { navController.navigate(Routes.TASKS) }
-                MenuActionButton(Icons.Outlined.EditNote, "Catatan", p.menuNotes.border, p.menuNotes.icon, containerColor = p.menuNotes.container) { navController.navigate(Routes.NOTES) }
-                MenuActionButton(Icons.Outlined.CalendarMonth, "Kalender", p.menuCalendar.border, p.menuCalendar.icon, containerColor = p.menuCalendar.container) { navController.navigate(Routes.CALENDAR) }
-                MenuActionButton(Icons.Outlined.AccountBalanceWallet, "Keuangan", p.menuFinance.border, p.menuFinance.icon, containerColor = p.menuFinance.container) { navController.navigate(Routes.FINANCE) }
+                MenuActionButton(rememberTasksIcon(), "Tugas", p.menuTasks.border, p.menuTasks.icon, containerColor = p.menuTasks.container) { navController.navigate(Routes.TASKS) }
+                MenuActionButton(rememberNotesIcon(), "Catatan", p.menuNotes.border, p.menuNotes.icon, containerColor = p.menuNotes.container) { navController.navigate(Routes.NOTES) }
+                MenuActionButton(rememberCalendarIcon(), "Kalender", p.menuCalendar.border, p.menuCalendar.icon, containerColor = p.menuCalendar.container) { navController.navigate(Routes.CALENDAR) }
+                MenuActionButton(rememberFinanceIcon(), "Keuangan", p.menuFinance.border, p.menuFinance.icon, containerColor = p.menuFinance.container) { navController.navigate(Routes.FINANCE) }
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(32.dp))
         AnimatedEntry(delay = 450) {
             Text(
                 "Daftar Tugas",
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 lineHeight = 28.sp,
                 color = p.textPrimary
@@ -392,60 +401,154 @@ fun HomeScreen(
 }
 
 /**
- * Ring progres dengan gradasi sweep (start -> mid -> end) sepanjang busur
- * progres, ujung membulat, dan track di belakangnya.
+ * Gauge setengah lingkaran seperti foto referensi:
+ *  1. halo lembut di belakang pita
+ *  2. pita latar (bagian yang belum tercapai) berwarna sangat muda
+ *  3. pita aktif dengan gradasi sweep dari kiri sampai posisi progres
+ *  4. pinggir luar dan bagian bawah dibuat memudar ke warna kartu
+ *  5. setengah lingkaran dalam (warna kartu) membentuk tepi dalam yang tegas
+ *  6. garis penanda, titik-titik halus, dan jarum gelap di posisi progres
+ * Koordinat dihitung dari ukuran referensi 442 x 323 (1 satuan = u px).
  */
 @Composable
-private fun GradientProgressRing(
-    progress: Float,
-    ringSize: Dp,
-    strokeWidth: Dp,
-    trackColor: Color,
-    startColor: Color,
-    midColor: Color,
-    endColor: Color
-) {
+private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = Modifier) {
     val value = progress.coerceIn(0f, 1f)
-    Canvas(Modifier.size(ringSize)) {
-        val stroke = strokeWidth.toPx()
-        val diameter = size.minDimension - stroke
-        val topLeft = Offset(stroke / 2f, stroke / 2f)
-        val arcSize = Size(diameter, diameter)
+    Canvas(modifier) {
+        val u = size.width / 442f
+        val cx = size.width / 2f
+        val cy = 245f * u                 // garis dasar gauge
+        val center = Offset(cx, cy)
+        val rIn = 106f * u                // tepi dalam pita
+        val rOut = 172f * u               // tepi luar pita
+        val sweep = 180f * value
+        val bg = p.progressCard
+        val sectorTopLeft = Offset(cx - rOut, cy - rOut)
+        val sectorSize = Size(rOut * 2f, rOut * 2f)
 
-        drawArc(
-            color = trackColor,
-            startAngle = 0f,
-            sweepAngle = 360f,
-            useCenter = false,
-            topLeft = topLeft,
-            size = arcSize,
-            style = Stroke(width = stroke)
-        )
+        clipRect(left = 0f, top = 0f, right = size.width, bottom = cy) {
+            // 1. halo
+            drawCircle(
+                brush = Brush.radialGradient(
+                    0.00f to Color.Transparent,
+                    0.55f to Color.Transparent,
+                    0.64f to p.gaugeHalo.copy(alpha = 0.20f),
+                    0.86f to p.gaugeHalo.copy(alpha = 0.09f),
+                    1.00f to Color.Transparent,
+                    center = center,
+                    radius = rOut * 1.12f
+                ),
+                radius = rOut * 1.12f,
+                center = center
+            )
 
-        if (value > 0f) {
-            // Mulai dari jam 12, searah jarum jam
-            rotate(degrees = -90f, pivot = center) {
+            // 2. pita latar (setengah lingkaran penuh)
+            drawArc(
+                color = p.gaugeTrack.copy(alpha = 0.65f),
+                startAngle = 180f,
+                sweepAngle = 180f,
+                useCenter = true,
+                topLeft = sectorTopLeft,
+                size = sectorSize
+            )
+
+            // 3. pita aktif (gradasi sweep dari kiri ke posisi progres)
+            if (value > 0f) {
+                val fEnd = (180f + sweep) / 360f
                 drawArc(
                     brush = Brush.sweepGradient(
-                        0f to startColor,
-                        (value * 0.55f) to midColor,
-                        value to endColor,
-                        1f to endColor,
+                        0.0f to p.gaugeHigh.copy(alpha = 0.90f),
+                        0.5f to p.gaugeLow.copy(alpha = 0.55f),
+                        (0.5f + (fEnd - 0.5f) * 0.42f) to p.gaugeMid,
+                        fEnd to p.gaugeHigh.copy(alpha = 0.90f),
+                        1.0f to p.gaugeHigh.copy(alpha = 0.90f),
                         center = center
                     ),
-                    startAngle = 0f,
-                    sweepAngle = 360f * value,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSize,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    startAngle = 180f,
+                    sweepAngle = sweep,
+                    useCenter = true,
+                    topLeft = sectorTopLeft,
+                    size = sectorSize
                 )
             }
-            // Ujung awal membulat dengan warna awal gradasi (hindari wrap warna)
+
+            // 4a. tepi luar memudar ke warna kartu
             drawCircle(
-                color = startColor,
-                radius = stroke / 2f,
-                center = Offset(center.x, stroke / 2f)
+                brush = Brush.radialGradient(
+                    0.000f to Color.Transparent,
+                    0.730f to Color.Transparent,
+                    0.893f to bg.copy(alpha = 0.50f),
+                    1.000f to bg,
+                    center = center,
+                    radius = rOut * 1.12f
+                ),
+                radius = rOut * 1.12f,
+                center = center
+            )
+
+            // 4b. bagian bawah (dekat garis dasar) memudar ke warna kartu
+            val fadeH = 0.34f * rOut
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    1f to bg,
+                    startY = cy - fadeH,
+                    endY = cy
+                ),
+                topLeft = Offset(0f, cy - fadeH),
+                size = Size(size.width, fadeH)
+            )
+
+            // 5. setengah lingkaran dalam
+            drawCircle(color = bg, radius = rIn, center = center)
+        }
+
+        // 6a. garis penanda tiap 15 derajat (kecuali dekat jarum)
+        val needleAngle = 180f + sweep
+        for (i in 1..11) {
+            val deg = 180f + i * 15f
+            if (kotlin.math.abs(deg - needleAngle) < 7f) continue
+            val rad = deg * PI.toFloat() / 180f
+            val r1 = rIn + 9f * u
+            val r2 = rIn + 22f * u
+            val active = deg <= needleAngle
+            drawLine(
+                color = p.gaugeTick.copy(alpha = if (active) 0.55f else 0.30f),
+                start = Offset(cx + r1 * cos(rad), cy + r1 * sin(rad)),
+                end = Offset(cx + r2 * cos(rad), cy + r2 * sin(rad)),
+                strokeWidth = 1.6f * u,
+                cap = StrokeCap.Round
+            )
+        }
+
+        // 6b. titik-titik halus di bagian atas pita aktif (acak tetap, bukan animasi)
+        if (sweep > 12f) {
+            val rnd = Random(42)
+            val startDeg = 196f
+            val endDeg = needleAngle - 5f
+            repeat(90) {
+                val t = (rnd.nextFloat() + kotlin.math.sqrt(rnd.nextFloat())) / 2f
+                val deg = startDeg + (endDeg - startDeg) * t
+                val r = rIn + (rOut - rIn) * (0.30f + 0.62f * rnd.nextFloat())
+                val rad = deg * PI.toFloat() / 180f
+                drawCircle(
+                    color = p.gaugeDot.copy(alpha = 0.50f + 0.45f * rnd.nextFloat()),
+                    radius = (0.9f + 0.8f * rnd.nextFloat()) * u,
+                    center = Offset(cx + r * cos(rad), cy + r * sin(rad))
+                )
+            }
+        }
+
+        // 6c. jarum
+        if (value > 0f) {
+            val rad = needleAngle * PI.toFloat() / 180f
+            val r1 = rIn + 8f * u
+            val r2 = rIn + 48f * u
+            drawLine(
+                color = p.textPrimary,
+                start = Offset(cx + r1 * cos(rad), cy + r1 * sin(rad)),
+                end = Offset(cx + r2 * cos(rad), cy + r2 * sin(rad)),
+                strokeWidth = 3.6f * u,
+                cap = StrokeCap.Round
             )
         }
     }
@@ -478,12 +581,12 @@ fun StatCardMini(label: String, value: String, bgColor: Color, icon: ImageVector
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     color = p.textSecondary,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Medium
                 )
                 Text(
                     value,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
                     lineHeight = 26.sp,
                     color = p.textPrimary
                 )
@@ -520,9 +623,9 @@ fun MenuActionButton(
         Spacer(Modifier.height(9.dp))
         Text(
             label,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            fontWeight = FontWeight.Medium,
             color = p.menuLabel,
             textAlign = TextAlign.Center
         )
@@ -535,6 +638,7 @@ fun TaskRowItem(task: Task, onToggle: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .clickable(onClick = onToggle)
             .padding(horizontal = 19.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -551,7 +655,7 @@ fun TaskRowItem(task: Task, onToggle: () -> Unit) {
         ) {
             if (done) {
                 Icon(
-                    Icons.Filled.Check,
+                    rememberCheckIcon(),
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(18.dp)
@@ -590,34 +694,119 @@ fun TaskRowItem(task: Task, onToggle: () -> Unit) {
     }
 }
 
-/** Ikon clipboard + tanda plus (outline) untuk menu "Tugas". */
+/** Ikon-ikon Modern & Minimalis (Lucide Style) */
+
 @Composable
-private fun rememberClipboardPlusIcon(): ImageVector = remember {
-    ImageVector.Builder(
-        name = "ClipboardPlus",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).apply {
-        path(
-            fill = null,
-            stroke = SolidColor(Color.Black),
-            strokeLineWidth = 1.8f,
-            strokeLineCap = StrokeCap.Round,
-            strokeLineJoin = StrokeJoin.Round
-        ) {
-            // badan clipboard
-            moveTo(8f, 4f); horizontalLineTo(6f)
-            quadTo(4f, 4f, 4f, 6f); verticalLineTo(20f)
-            quadTo(4f, 22f, 6f, 22f); horizontalLineTo(18f)
-            quadTo(20f, 22f, 20f, 20f); verticalLineTo(6f)
-            quadTo(20f, 4f, 18f, 4f); horizontalLineTo(16f)
-            // penjepit
+private fun rememberCheckIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Check", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2.5f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(20f, 6f); lineTo(9f, 17f); lineTo(4f, 12f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberMailIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Mail", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(4f, 4f); horizontalLineTo(20f); quadTo(22f, 4f, 22f, 6f); verticalLineTo(18f); quadTo(22f, 20f, 20f, 20f); horizontalLineTo(4f); quadTo(2f, 20f, 2f, 18f); verticalLineTo(6f); quadTo(2f, 4f, 4f, 4f)
+            moveTo(22f, 6f); lineTo(12f, 13f); lineTo(2f, 6f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberTasksIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Tasks", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(8f, 2f); verticalLineTo(5f); moveTo(16f, 2f); verticalLineTo(5f)
+            moveTo(3f, 10f); horizontalLineTo(21f)
+            moveTo(3f, 6f); quadTo(3f, 4f, 5f, 4f); horizontalLineTo(19f); quadTo(21f, 4f, 21f, 6f); verticalLineTo(19f); quadTo(21f, 21f, 19f, 21f); horizontalLineTo(5f); quadTo(3f, 21f, 3f, 19f); close()
+            moveTo(9f, 14f); lineTo(11f, 16f); lineTo(15f, 12f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberNotesIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Notes", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(11f, 4f); horizontalLineTo(4f); quadTo(2f, 4f, 2f, 6f); verticalLineTo(20f); quadTo(2f, 22f, 4f, 22f); horizontalLineTo(18f); quadTo(20f, 22f, 20f, 20f); verticalLineTo(13f)
+            moveTo(18.5f, 2.5f); quadTo(19.5f, 1.5f, 21.5f, 3.5f); quadTo(22.5f, 4.5f, 21.5f, 5.5f); lineTo(12f, 15f); lineTo(8f, 16f); lineTo(9f, 12f); close()
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberCalendarIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Calendar", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(3f, 4f); horizontalLineTo(21f); quadTo(23f, 4f, 23f, 6f); verticalLineTo(20f); quadTo(23f, 22f, 21f, 22f); horizontalLineTo(3f); quadTo(1f, 22f, 1f, 20f); verticalLineTo(6f); quadTo(1f, 4f, 3f, 4f)
+            moveTo(16f, 2f); verticalLineTo(6f); moveTo(8f, 2f); verticalLineTo(6f); moveTo(1f, 10f); horizontalLineTo(23f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberFinanceIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Finance", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(21f, 12f); verticalLineTo(7f); quadTo(21f, 5f, 19f, 5f); horizontalLineTo(5f); quadTo(3f, 5f, 3f, 7f); verticalLineTo(17f); quadTo(3f, 19f, 5f, 19f); horizontalLineTo(19f); quadTo(21f, 19f, 21f, 17f); verticalLineTo(15f)
+            moveTo(16f, 12f); horizontalLineTo(22f); verticalLineTo(15f); horizontalLineTo(16f); close()
+        }
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(19f, 13.5f)
+            moveToRelative(-1.2f, 0f)
+            arcTo(1.2f, 1.2f, 0f, isMoreThanHalf = true, isPositiveArc = true, 20.2f, 13.5f)
+            arcTo(1.2f, 1.2f, 0f, isMoreThanHalf = true, isPositiveArc = true, 17.8f, 13.5f)
+            close()
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberClipboardListIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "List", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(16f, 4f); horizontalLineTo(18f); quadTo(20f, 4f, 20f, 6f); verticalLineTo(20f); quadTo(20f, 22f, 18f, 22f); horizontalLineTo(6f); quadTo(4f, 22f, 4f, 20f); verticalLineTo(6f); quadTo(4f, 4f, 6f, 4f); horizontalLineTo(8f)
             moveTo(9f, 2f); horizontalLineTo(15f); verticalLineTo(6f); horizontalLineTo(9f); close()
-            // plus
-            moveTo(12f, 11f); verticalLineTo(18f)
-            moveTo(8.5f, 14.5f); horizontalLineTo(15.5f)
+            moveTo(8f, 11f); horizontalLineTo(8.01f); moveTo(8f, 16f); horizontalLineTo(8.01f); moveTo(12f, 11f); horizontalLineTo(16f); moveTo(12f, 16f); horizontalLineTo(16f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberClockIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "Clock", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(12f, 2f)
+            arcTo(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = true, 2f, 12f)
+            arcTo(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = true, 12f, 2f)
+            moveTo(12f, 6f); verticalLineTo(12f); lineTo(16f, 14f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberCheckCircleIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "CheckCircle", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(12f, 2f)
+            arcTo(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = true, 2f, 12f)
+            arcTo(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = true, 12f, 2f)
+            moveTo(9f, 12f); lineTo(11f, 14f); lineTo(15f, 10f)
+        }
+    }.build()
+}
+
+@Composable
+private fun rememberAlertCircleIcon(): ImageVector = remember {
+    ImageVector.Builder(name = "AlertCircle", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(12f, 2f)
+            arcTo(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = true, 2f, 12f)
+            arcTo(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = true, 12f, 2f)
+            moveTo(12f, 8f); verticalLineTo(12f); moveTo(12f, 16f); horizontalLineTo(12.01f)
         }
     }.build()
 }

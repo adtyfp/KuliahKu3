@@ -1,7 +1,9 @@
 package com.kuliahku.ui.calendar
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,6 +33,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -534,50 +538,56 @@ private fun AgendaItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    Column(
-        Modifier
+    Surface(
+        modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.08f)),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, p.divider.copy(alpha = 0.5f))
     ) {
-        Box(Modifier.fillMaxWidth().height(2.dp).background(p.divider))
-        Row(Modifier.padding(start = 9.dp, top = 15.dp, bottom = 25.dp)) {
-            Box(Modifier.padding(top = 4.dp).size(30.dp)) {
-                Icon(icon, contentDescription = null, tint = p.agendaIcon, modifier = Modifier.fillMaxSize())
+        Row(
+            Modifier
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(40.dp).background(p.accent.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = p.agendaIcon, modifier = Modifier.size(24.dp))
                 if (showDot) {
                     Box(
                         Modifier
                             .align(Alignment.TopEnd)
                             .size(10.dp)
-                            .clip(CircleShape)
-                            .background(p.agendaIcon)
+                            .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                            .background(p.accent, CircleShape)
                     )
                 }
             }
-            Spacer(Modifier.width(17.dp))
-            Column {
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
                     typeLabel,
-                    fontSize = 14.sp,
-                    lineHeight = 16.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = p.textSecondary
                 )
                 Text(
                     title,
                     fontSize = 16.sp,
-                    lineHeight = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = p.textPrimary
-                )
-                Spacer(Modifier.height(17.dp))
-                Text(
-                    timeRange,
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = p.textSecondary
+                    color = p.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+            Text(
+                timeRange,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = p.textSecondary
+            )
         }
     }
 }

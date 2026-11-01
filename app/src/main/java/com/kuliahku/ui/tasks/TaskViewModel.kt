@@ -6,6 +6,8 @@ import com.kuliahku.data.model.Task
 import com.kuliahku.data.model.TaskPriority
 import com.kuliahku.data.model.TaskStatus
 import com.kuliahku.data.repository.TaskRepository
+import com.kuliahku.ai.AiRepository
+import com.kuliahku.ai.AiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -26,7 +28,9 @@ data class TasksUiState(
     val showFilterSheet: Boolean = false,
     val priorityFilter: Set<TaskPriority> = emptySet(),
     val sortBy: TaskSort = TaskSort.DEADLINE_ASC,
-    val pendingDelete: Task? = null
+    val pendingDelete: Task? = null,
+    val aiAdvice: String? = null,
+    val isAiLoading: Boolean = false
 )
 
 enum class TaskSort(val label: String) {
@@ -41,7 +45,8 @@ sealed interface TasksEvent {
 
 @HiltViewModel
 class TasksViewModel @Inject constructor(
-    private val repo: TaskRepository
+    private val repo: TaskRepository,
+    private val aiRepo: AiRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TasksUiState())
@@ -57,7 +62,21 @@ class TasksViewModel @Inject constructor(
                 .collect { list ->
                     _uiState.update { it.copy(tasks = list, isLoading = false, error = null) }
                     applyFilters()
+                    if (list.isNotEmpty()) fetchAiAdvice(list)
                 }
+        }
+    }
+
+    private fun fetchAiAdvice(tasks: List<Task>) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAiLoading = true) }
+            val result = aiRepo.getTaskPrioritizationAdvice(tasks)
+            _uiState.update { 
+                it.copy(
+                    isAiLoading = false,
+                    aiAdvice = if (result is AiResult.Success) result.data else null
+                )
+            }
         }
     }
 

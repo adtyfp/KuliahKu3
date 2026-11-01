@@ -33,7 +33,11 @@ class MaterialRepository @Inject constructor(
         val listener = col(uid)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("MaterialRepository", "Error observing materials: ${err.message}")
+                    trySend(emptyList())
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.documents?.mapNotNull { it.toObject(Material::class.java) } ?: emptyList())
             }
         awaitClose { listener.remove() }
@@ -43,7 +47,11 @@ class MaterialRepository @Inject constructor(
         val uid = auth.currentUser?.uid ?: run { trySend(null); close(); return@callbackFlow }
         val listener = col(uid).document(id)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("MaterialRepository", "Error observing material $id: ${err.message}")
+                    trySend(null)
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.toObject(Material::class.java))
             }
         awaitClose { listener.remove() }

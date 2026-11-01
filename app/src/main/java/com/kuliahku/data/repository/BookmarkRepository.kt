@@ -28,7 +28,11 @@ class BookmarkRepository @Inject constructor(
         val listener = col(uid)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("BookmarkRepository", "Error observing bookmarks: ${err.message}")
+                    trySend(emptyList())
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.documents?.mapNotNull { it.toObject(Bookmark::class.java) } ?: emptyList())
             }
         awaitClose { listener.remove() }

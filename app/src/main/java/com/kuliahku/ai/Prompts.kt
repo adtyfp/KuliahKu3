@@ -81,4 +81,26 @@ object Prompts {
         Materi:
         $text
     """.trimIndent()
+
+    fun taskPrioritization(tasksJson: String): String = """
+        Anda adalah asisten produktivitas. Analisis daftar tugas berikut dan berikan saran urutan pengerjaan yang paling efisien berdasarkan deadline, kompleksitas (dari deskripsi), dan prioritas.
+        Berikan saran dalam 3-5 poin singkat dalam Bahasa Indonesia.
+        Jelaskan alasan singkat mengapa urutan tersebut disarankan.
+
+        Daftar Tugas (JSON):
+        $tasksJson
+    """.trimIndent()
+
+    fun financeInsight(summaryJson: String): String = """
+        Anda adalah asisten perencana keuangan mahasiswa. Analisis ringkasan transaksi bulanan berikut.
+        Berikan 3 insight utama:
+        1. Evaluasi pengeluaran terbesar.
+        2. Saran penghematan yang realistis untuk mahasiswa.
+        3. Prediksi kondisi keuangan akhir bulan jika pola berlanjut.
+        
+        Gunakan Bahasa Indonesia yang santai tapi profesional. Maksimal 150 kata.
+
+        Ringkasan Keuangan (JSON):
+        $summaryJson
+    """.trimIndent()
 }

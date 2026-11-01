@@ -27,7 +27,9 @@ class UserRepository @Inject constructor(
         val listener = ref.addSnapshotListener { snapshot, error ->
             if (error != null) { 
                 android.util.Log.e("UserRepository", "Error observing user: ${error.message}", error)
-                close(error); 
+                // Jangan panggil close(error) karena akan membuat crash jika flow dikoleksi di scope yang tidak menangani exception
+                // Kirim null atau biarkan saja saat logout
+                trySend(null)
                 return@addSnapshotListener 
             }
             trySend(snapshot?.toObject(User::class.java))

@@ -28,7 +28,11 @@ class NotificationRepository @Inject constructor(
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(100)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("NotificationRepository", "Error observing notifications: ${err.message}")
+                    trySend(emptyList())
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.documents?.mapNotNull { it.toObject(AppNotification::class.java) } ?: emptyList())
             }
         awaitClose { listener.remove() }

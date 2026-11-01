@@ -30,7 +30,11 @@ class EventRepository @Inject constructor(
         val listener = col(uid)
             .orderBy("start", Query.Direction.ASCENDING)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("EventRepository", "Error observing events: ${err.message}")
+                    trySend(emptyList())
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.documents?.mapNotNull { it.toObject(Event::class.java) } ?: emptyList())
             }
         awaitClose { listener.remove() }

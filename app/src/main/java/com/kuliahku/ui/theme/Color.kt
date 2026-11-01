@@ -3,20 +3,20 @@ package com.kuliahku.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Core Light
-val Primary = Color(0xFF0F79DC)
-val Background = Color(0xFFFBFCFF)
+val Primary = Color(0xFF2563EB) // Biru Profesional (Blue 600)
+val Background = Color(0xFFF8FAFF) // Putih kebiruan sangat bersih
 val Surface = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFF3F6FF)
-val OnSurface = Color(0xFF1C1B1F)
-val OnSurfaceVariant = Color(0xFF44474E)
+val SurfaceVariant = Color(0xFFF1F5F9) // Slate 100 untuk kartu sekunder
+val OnSurface = Color(0xFF1E293B) // Dark Slate (Slate 800)
+val OnSurfaceVariant = Color(0xFF64748B) // Slate 500 untuk teks sekunder
 
 // Core Dark
-val PrimaryDark = Color(0xFF6BA8E8)
-val BackgroundDark = Color(0xFF121212)
-val SurfaceDark = Color(0xFF1E1E1E)
-val SurfaceVariantDark = Color(0xFF2A2D35)
-val OnSurfaceDark = Color(0xFFE6E1E5)
-val OnSurfaceVariantDark = Color(0xFFC4C6CF)
+val PrimaryDark = Color(0xFF60A5FA)
+val BackgroundDark = Color(0xFF0F172A) // Deep Slate
+val SurfaceDark = Color(0xFF1E293B)
+val SurfaceVariantDark = Color(0xFF334155)
+val OnSurfaceDark = Color(0xFFF1F5F9)
+val OnSurfaceVariantDark = Color(0xFF94A3B8)
 
 // Accent Colors - Light
 val BlueSoft = Color(0xFFCDD9FB)

@@ -200,31 +200,7 @@ fun AddEditTaskScreen(
                     shape = RoundedCornerShape(30.dp),
                     singleLine = false
                 )
-                Spacer(Modifier.height(16.dp))
-
-                // ── Prioritas (fungsi asli dipertahankan, mengisi slot kotak upload) ──
-                Text(
-                    "Prioritas",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = p.textPrimary,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PriorityChip(
-                        label = "High", selected = state.priority == TaskPriority.HIGH,
-                        bg = BadgeHighBg, onClick = { viewModel.onPriorityChange(TaskPriority.HIGH) }
-                    )
-                    PriorityChip(
-                        label = "Medium", selected = state.priority == TaskPriority.MEDIUM,
-                        bg = BadgeMediumBg, onClick = { viewModel.onPriorityChange(TaskPriority.MEDIUM) }
-                    )
-                    PriorityChip(
-                        label = "Low", selected = state.priority == TaskPriority.LOW,
-                        bg = BadgeLowBg, onClick = { viewModel.onPriorityChange(TaskPriority.LOW) }
-                    )
-                }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(32.dp))
             }
 
             // ── Tombol Submit: x=25..413, tinggi 52, dasar y=913 (bawah 43) ──

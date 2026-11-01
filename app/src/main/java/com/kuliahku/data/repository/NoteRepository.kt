@@ -30,7 +30,11 @@ class NoteRepository @Inject constructor(
         val listener = col(uid)
             .orderBy("updatedAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("NoteRepository", "Error observing notes: ${err.message}")
+                    trySend(emptyList())
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.documents?.mapNotNull { it.toObject(Note::class.java) } ?: emptyList())
             }
         awaitClose { listener.remove() }
@@ -40,7 +44,11 @@ class NoteRepository @Inject constructor(
         val uid = auth.currentUser?.uid ?: run { trySend(null); close(); return@callbackFlow }
         val listener = col(uid).document(noteId)
             .addSnapshotListener { snap, err ->
-                if (err != null) { close(err); return@addSnapshotListener }
+                if (err != null) { 
+                    android.util.Log.e("NoteRepository", "Error observing note $noteId: ${err.message}")
+                    trySend(null)
+                    return@addSnapshotListener 
+                }
                 trySend(snap?.toObject(Note::class.java))
             }
         awaitClose { listener.remove() }

@@ -84,20 +84,20 @@ private class FinPalette(
 )
 
 private val FinLight = FinPalette(
-    background = Color(0xFFF8F9FF),
+    background = Color(0xFFF8FAFF), // Senada dengan Beranda
     surface = Color.White,
-    border = Color(0xFFE0E0E5),
-    textPrimary = Color.Black,
-    textGray = Color(0xFF555555),
-    accent = Color(0xFF0F79DC),
-    barCardBg = Color(0xFFCDD9FB),
-    barColor = Color(0xFF8AA3FF),
-    barGrid = Color(0xFFAEBEF0),
-    greenBg = Color(0xFFC2FFC4),
-    redBg = Color(0xFFFFB1B1),
-    tabSelected = Color(0xFF96C3EE),
-    segmentBg = Color(0xFFEEF1F8),
-    chartGrid = Color(0xFFAAAAAA),
+    border = Color(0xFFE2E8F0), // Border halus slate
+    textPrimary = Color(0xFF1E293B), // Dark slate
+    textGray = Color(0xFF64748B), // Slate gray
+    accent = Color(0xFF2563EB), // Blue 600
+    barCardBg = Color(0xFFEFF6FF),
+    barColor = Color(0xFF3B82F6),
+    barGrid = Color(0xFFDBEAFE),
+    greenBg = Color(0xFFECFDF5),
+    redBg = Color(0xFFFEF2F2),
+    tabSelected = Color(0xFFDBEAFE),
+    segmentBg = Color(0xFFF1F5F9),
+    chartGrid = Color(0xFFCBD5E1),
     chartLine = Color(0xFF2DCB6B),
     chartLabel = Color(0xFF666666),
     peakLabel = Color(0xFF3A8F5A),
@@ -206,9 +206,9 @@ fun FinanceScreen(
                     Text(
                         "Keuangan",
                         modifier = Modifier.offset(x = (-10).dp),
-                        fontSize = 26.sp,
-                        lineHeight = 34.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 24.sp,
+                        lineHeight = 32.sp,
+                        fontWeight = FontWeight.ExtraBold,
                         color = p.textPrimary
                     )
                     Spacer(Modifier.weight(1f))
@@ -274,6 +274,18 @@ fun FinanceScreen(
                         }
                     }
 
+                    // ---------------- AI Insight ----------------
+                    if (state.isAiLoading || state.aiInsight != null) {
+                        Spacer(Modifier.height(16.dp))
+                        AnimatedEntry(delay = 150) {
+                            AiInsightCard(
+                                insight = state.aiInsight,
+                                isLoading = state.isAiLoading,
+                                p = p
+                            )
+                        }
+                    }
+
                     // ---------------- Riwayat Transaksi ----------------
                     Spacer(Modifier.height(16.dp))
                     AnimatedEntry(delay = 200) {
@@ -286,7 +298,7 @@ fun FinanceScreen(
                                     "Riwayat Transaksi",
                                     fontSize = 20.sp,
                                     lineHeight = 28.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontWeight = FontWeight.Bold,
                                     color = p.textPrimary
                                 )
                                 Spacer(Modifier.weight(1f))
@@ -331,7 +343,7 @@ fun FinanceScreen(
                                 modifier = Modifier.padding(start = 4.dp),
                                 fontSize = 20.sp,
                                 lineHeight = 28.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                                 color = p.textPrimary
                             )
                             Spacer(Modifier.height(8.dp))
@@ -403,6 +415,51 @@ fun FinanceScreen(
     }
 }
 
+@Composable
+private fun AiInsightCard(insight: String?, isLoading: Boolean, p: FinPalette) {
+    val shape = RoundedCornerShape(24.dp)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                6.dp, shape,
+                ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
+                spotColor = Color.Black.copy(alpha = p.shadowAlpha)
+            ),
+        shape = shape,
+        color = p.surface,
+        border = BorderStroke(1.dp, p.border)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("💡", fontSize = 18.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Smart Finance Insight",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = p.accent
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            if (isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().height(2.dp).clip(CircleShape),
+                    color = p.accent,
+                    trackColor = p.border
+                )
+            } else {
+                Text(
+                    text = insight ?: "",
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = p.textPrimary
+                )
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Kartu bar chart mingguan (posisi dihitung dari lebar kartu agar responsif)
 // ---------------------------------------------------------------------------
@@ -420,9 +477,15 @@ private fun WeeklyBarCard(
     val axisMax = niceCeil(maxVal)
 
     Surface(
-        modifier = modifier,
+        modifier = modifier.shadow(
+            elevation = 8.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
+            spotColor = Color.Black.copy(alpha = p.shadowAlpha)
+        ),
         shape = RoundedCornerShape(24.dp),
-        color = p.barCardBg
+        color = p.barCardBg,
+        border = BorderStroke(1.dp, p.border.copy(alpha = 0.5f))
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val plotLeft = 30.dp
@@ -520,6 +583,8 @@ private fun SummaryCard(
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = bg,
+        border = BorderStroke(1.dp, p.border.copy(alpha = 0.5f)),
+        shadowElevation = 4.dp,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(start = 21.dp, top = 27.dp)) {
@@ -842,18 +907,18 @@ private fun dashedCircle(cx: Float, cy: Float, r: Float, dashes: Int = 12): Stri
     return sb.toString()
 }
 
-private val ChevronLeftIcon = vec("ChevronLeft") { stroked("M15 4L7 12l8 8", 2.2f) }
+private val ChevronLeftIcon = vec("ChevronLeft") { stroked("M15 18l-6-6 6-6", 2.2f) }
 
 private val EditSquareIcon = vec("EditSquare") {
     stroked(
         "M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6 " +
                 "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
-        2f
+        2.2f
     )
 }
 
 private val UploadTrayIcon = vec("UploadTray") {
-    stroked("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12", 2f)
+    stroked("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12", 2.2f)
 }
 
 private val MoneyBagPlusIcon = vec("MoneyBagPlus") {
@@ -863,15 +928,15 @@ private val MoneyBagPlusIcon = vec("MoneyBagPlus") {
                 "M13.3 6.6C16.5 8.3 18.5 11 18.5 13 " +
                 "M11 10.5v6.5 M12.9 11.7c0-.8-.8-1.2-1.9-1.2s-1.9.5-1.9 1.3.9 1.2 1.9 1.5 1.9.7 1.9 1.5-.8 1.3-1.9 1.3-1.9-.4-1.9-1.2 " +
                 "M19 15a3.3 3.3 0 1 0 0 6.6 3.3 3.3 0 1 0 0-6.6z M19 16.7v3.2 M17.4 18.3h3.2",
-        1.7f
+        2f
     )
 }
 
 private val DashedCoinIcon = vec("DashedCoin") {
-    stroked(dashedCircle(12f, 12f, 9.5f), 1.7f)
+    stroked(dashedCircle(12f, 12f, 9.5f), 2f)
     stroked(
         "M12 6.5v11 M14.6 9.4c0-1.1-1.2-1.7-2.6-1.7s-2.6.7-2.6 1.9 1.2 1.6 2.6 2 2.6.8 2.6 2-1.2 1.9-2.6 1.9-2.6-.7-2.6-1.8",
-        1.7f
+        2f
     )
 }
 

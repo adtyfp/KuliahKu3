@@ -50,7 +50,11 @@ class TaskRepository @Inject constructor(
         val listener = tasksCollection(uid)
             .orderBy("deadline", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) { close(error); return@addSnapshotListener }
+                if (error != null) { 
+                    android.util.Log.e("TaskRepository", "Error observing tasks: ${error.message}")
+                    trySend(emptyList()) 
+                    return@addSnapshotListener 
+                }
                 val items = snapshot?.documents?.mapNotNull { it.toObject(Task::class.java) } ?: emptyList()
                 trySend(items)
             }
@@ -120,7 +124,11 @@ class TaskRepository @Inject constructor(
         if (uid == null) { trySend(null); close(); return@callbackFlow }
         val listener = tasksCollection(uid).document(taskId)
             .addSnapshotListener { snap, error ->
-                if (error != null) { close(error); return@addSnapshotListener }
+                if (error != null) {
+                    android.util.Log.e("TaskRepository", "Error observing task $taskId: ${error.message}")
+                    trySend(null)
+                    return@addSnapshotListener
+                }
                 trySend(snap?.toObject(Task::class.java))
             }
         awaitClose { listener.remove() }

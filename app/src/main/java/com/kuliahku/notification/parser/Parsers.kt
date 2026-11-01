@@ -5,6 +5,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Helper: konversi "1.500.000", "Rp1.500.000,00", atau "IDR 5,000.00" ke Long. */
+private val BLACKLIST_KEYWORDS = listOf(
+    "saldo", "sisa", "limit", "poin", "point", "informasi", "rekening", 
+    "otp", "keamanan", "aktivasi", "biaya admin", "syarat", "ketentuan",
+    "promo", "diskon", "cashback", "suku bunga"
+)
+
+private fun isNotTransaction(text: String): Boolean {
+    // Abaikan jika mengandung kata kunci informasi saldo/limit atau info keamanan/promo
+    return BLACKLIST_KEYWORDS.any { text.contains(it, ignoreCase = true) }
+}
+
 private fun parseAmount(s: String): Long? {
     var clean = s.replace("Rp", "", true)
         .replace("IDR", "", true)
@@ -29,6 +40,7 @@ class MyBcaParser @Inject constructor() : NotificationParser {
     override val displayName = "myBCA"
 
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         android.util.Log.d("MyBcaParser", "Mencoba parsing myBCA: $text")
 
         val amountRx = Regex("""(?:Rp|IDR)\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
@@ -49,7 +61,12 @@ class MyBcaParser @Inject constructor() : NotificationParser {
                         text.contains("pembelian", true) ||
                         text.contains("paid", true)
 
-        val type = if (isIncome && !isExpense) TxType.INCOME else TxType.EXPENSE
+        // Tentukan tipe secara eksplisit
+        val type = when {
+            isIncome && !isExpense -> TxType.INCOME
+            isExpense -> TxType.EXPENSE
+            else -> return null // Bukan transaksi yang jelas (bisa jadi saldo)
+        }
         val merchant = extractMerchant(text)
         
         return ParsedTransaction(type, amount, if (type == TxType.INCOME) "Lainnya" else categoryFromMerchant(merchant), merchant)
@@ -97,10 +114,13 @@ class BcaParser @Inject constructor() : NotificationParser {
     private val expenseRegex = Regex("""(?:transaksi|pembayaran|pembelian|transfer|debit|db|ke|bayar).*?(?:Rp|IDR)?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
 
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         android.util.Log.d("BcaParser", "Mencoba parsing: $text")
 
-        // Prioritaskan Income jika ada kata kunci masuk
-        if (text.contains("masuk", true) || text.contains("menerima", true) || text.contains("dana masuk", true)) {
+        // Cek apakah ini benar-benar transaksi masuk
+        val isIncome = text.contains("masuk", true) || text.contains("menerima", true) || text.contains("dana masuk", true)
+        
+        if (isIncome) {
             incomeRegex.find(text)?.let { m ->
                 val amount = parseAmount(m.groupValues[1]) ?: return@let
                 return ParsedTransaction(TxType.INCOME, amount, "Lainnya", extractMerchant(text, isIncome = true))
@@ -146,6 +166,7 @@ class BcaDigitalParser @Inject constructor() : NotificationParser {
     override val packageName = "com.bcadigital.android"
     override val displayName = "blu by BCA"
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         val rx = Regex("""(?:terima|masuk|transfer|bayar|keluar).*?(?:Rp|IDR)?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
         val m = rx.find(text) ?: return null
         val amount = parseAmount(m.groupValues[1]) ?: return null
@@ -171,6 +192,7 @@ class BrimoParser @Inject constructor() : NotificationParser {
     private val rx = Regex("""(?:transaksi|debit|kredit|transfer).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     private val inRx = Regex("""(?:menerima|masuk|kredit).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         inRx.find(text)?.let { m ->
             val amount = parseAmount(m.groupValues[1]) ?: return@let
             return ParsedTransaction(TxType.INCOME, amount, "Lainnya", null)
@@ -191,6 +213,7 @@ class LivinParser @Inject constructor() : NotificationParser {
     private val rx = Regex("""(?:transaksi|pembayaran|transfer|debit).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     private val inRx = Regex("""(?:kredit|menerima|masuk).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         inRx.find(text)?.let { m ->
             val amount = parseAmount(m.groupValues[1]) ?: return@let
             return ParsedTransaction(TxType.INCOME, amount, "Lainnya", null)
@@ -211,6 +234,7 @@ class DanaParser @Inject constructor() : NotificationParser {
     private val inRx = Regex("""(?:menerima|masuk|diterima|refund|dana kaget).*?(?:Rp|IDR)?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         inRx.find(text)?.let { m ->
             val amount = parseAmount(m.groupValues[1]) ?: return@let
             return ParsedTransaction(TxType.INCOME, amount, "Lainnya", null)
@@ -236,6 +260,7 @@ class GopayParser @Inject constructor() : NotificationParser {
     private val outRx = Regex("""(?:pembayaran|bayar|kirim|transfer|topup|top up|pulsa).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     private val inRx = Regex("""(?:menerima|masuk|diterima|refund).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         inRx.find(text)?.let { m ->
             val amount = parseAmount(m.groupValues[1]) ?: return@let
             return ParsedTransaction(TxType.INCOME, amount, "Lainnya", null)
@@ -260,6 +285,7 @@ class OvoParser @Inject constructor() : NotificationParser {
     private val rx = Regex("""(?:pembayaran|transaksi|bayar|kirim).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     private val inRx = Regex("""(?:menerima|masuk|diterima|top up|topup).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         inRx.find(text)?.let { m ->
             val amount = parseAmount(m.groupValues[1]) ?: return@let
             return ParsedTransaction(TxType.INCOME, amount, "Lainnya", null)
@@ -279,6 +305,7 @@ class ShopeeParser @Inject constructor() : NotificationParser {
     private val rx = Regex("""(?:pembayaran|bayar|transaksi).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     private val inRx = Regex("""(?:menerima|masuk|refund|pengembalian).*?Rp\.?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
     override fun parse(text: String): ParsedTransaction? {
+        if (isNotTransaction(text)) return null
         inRx.find(text)?.let { m ->
             val amount = parseAmount(m.groupValues[1]) ?: return@let
             return ParsedTransaction(TxType.INCOME, amount, "Lainnya", null)

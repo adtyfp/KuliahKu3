@@ -24,7 +24,7 @@ data class Task(
     val title: String = "",
     val description: String = "",
     val deadline: Timestamp? = null,
-    val priority: String = TaskPriority.MEDIUM.value,
+    val priority: String = TaskPriority.LOW.value,
     val status: String = TaskStatus.TODO.value,
     val progress: Int = 0,
     val color: Int = 0,
@@ -35,6 +35,19 @@ data class Task(
     val createdAt: Timestamp? = null,
     val updatedAt: Timestamp? = null
 ) {
-    val priorityEnum: TaskPriority get() = TaskPriority.from(priority)
+    val priorityEnum: TaskPriority get() = calculatePriority()
     val statusEnum: TaskStatus get() = TaskStatus.from(status)
+
+    private fun calculatePriority(): TaskPriority {
+        val dl = deadline?.toDate()?.time ?: return TaskPriority.LOW
+        val now = System.currentTimeMillis()
+        val diff = dl - now
+        val oneDay = 24 * 60 * 60 * 1000L
+        val threeDays = 3 * oneDay
+        return when {
+            diff <= oneDay -> TaskPriority.HIGH
+            diff <= threeDays -> TaskPriority.MEDIUM
+            else -> TaskPriority.LOW
+        }
+    }
 }
