@@ -9,6 +9,7 @@ import com.kuliahku.data.model.EventRepeat
 import com.kuliahku.data.model.EventType
 import com.kuliahku.data.model.ReminderStyle
 import com.kuliahku.data.repository.EventRepository
+import com.kuliahku.notification.ReminderScheduler
 import com.kuliahku.util.DateFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -44,6 +45,7 @@ sealed interface AddEventEvent {
 @HiltViewModel
 class AddEventViewModel @Inject constructor(
     private val repo: EventRepository,
+    private val scheduler: ReminderScheduler,
     savedState: SavedStateHandle
 ) : ViewModel() {
 
@@ -151,7 +153,10 @@ class AddEventViewModel @Inject constructor(
                 reminderOffsetMinutes = if (s.reminderStyle == ReminderStyle.BANNER) null else s.reminderOffsetMinutes
             )
             repo.upsert(ev)
-                .onSuccess { _events.send(AddEventEvent.Saved) }
+                .onSuccess {
+                    scheduler.scheduleEventReminder(ev)
+                    _events.send(AddEventEvent.Saved)
+                }
                 .onFailure { _events.send(AddEventEvent.ShowMessage(it.message ?: "Gagal menyimpan.")) }
             _uiState.update { it.copy(isSaving = false) }
         }

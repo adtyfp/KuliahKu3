@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -51,6 +52,7 @@ import kotlin.random.Random
 // sehingga mengikuti tema aplikasi (bukan hanya setelan sistem).
 // Field gauge* dipakai oleh kartu progres (gauge setengah lingkaran) dan tetap
 // berada di keluarga warna biru tema aplikasi.
+// gaugeShade / gaugeShine = bayangan & kilap untuk efek 3D pada pita gauge.
 // ---------------------------------------------------------------------------
 private class Tone(val container: Color, val accent: Color)
 private class MenuTone(val container: Color, val border: Color, val icon: Color)
@@ -79,6 +81,8 @@ private class HomePalette(
     val gaugeHigh: Color,
     val gaugeTick: Color,
     val gaugeDot: Color,
+    val gaugeShade: Color,
+    val gaugeShine: Color,
     val statTotal: Tone,
     val statUpcoming: Tone,
     val statDone: Tone,
@@ -107,12 +111,14 @@ private val LightPalette = HomePalette(
     statIconLate = Color(0xFFEF4444),
     shadowAlpha = 0.08f, // Sedikit ditingkatkan agar lebih 'hidup'
     gaugeHalo = Color(0xFFDBEAFE),
-    gaugeTrack = Color(0xFFF1F5F9),
+    gaugeTrack = Color(0xFFE2EAF5), // sedikit lebih gelap dari kartu agar pita yang belum tercapai tetap terlihat
     gaugeLow = Color(0xFF93C5FD),
     gaugeMid = Color(0xFF60A5FA),
     gaugeHigh = Color(0xFF3B82F6),
     gaugeTick = Color(0xFF94A3B8),
     gaugeDot = Color.White,
+    gaugeShade = Color(0x2E1E3A8A),
+    gaugeShine = Color(0x70FFFFFF),
     statTotal = Tone(Color(0xFFEFF6FF), Color(0xFF2563EB)),
     statUpcoming = Tone(Color(0xFFF0F9FF), Color(0xFF0EA5E9)),
     statDone = Tone(Color(0xFFECFDF5), Color(0xFF10B981)),
@@ -147,6 +153,8 @@ private val DarkPalette = HomePalette(
     gaugeHigh = Color(0xFF5E88F0),
     gaugeTick = Color(0xFF8B93AE),
     gaugeDot = Color(0xFFB8C8FF),
+    gaugeShade = Color(0x66000000),
+    gaugeShine = Color(0x2EFFFFFF),
     statTotal = Tone(Color(0xFF1C2B55), Color(0xFF6C94FF)),
     statUpcoming = Tone(Color(0xFF1B2A4A), Color(0xFF7BA0FF)),
     statDone = Tone(Color(0xFF14362A), Color(0xFF3DD083)),
@@ -251,16 +259,12 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(13.dp))
-
-        // ---------------- Progres Tugasku (gauge setengah lingkaran) ----------------
-        // Proporsi kartu mengikuti referensi (442 : 323). Semua ukuran di dalamnya
-        // diskalakan dari lebar kartu, jadi tampilannya tetap proporsional di semua layar.
         AnimatedEntry(delay = 200) {
             val cardShape = RoundedCornerShape(28.dp)
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(442f / 323f)
+                    .aspectRatio(442f / 268f)
                     .shadow(8.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor),
                 shape = cardShape,
                 color = p.progressCard,
@@ -283,7 +287,7 @@ fun HomeScreen(
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = (160f * u).dp, start = 12.dp, end = 12.dp),
+                            .padding(top = (112f * u).dp, start = 12.dp, end = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -401,14 +405,15 @@ fun HomeScreen(
 }
 
 /**
- * Gauge setengah lingkaran seperti foto referensi:
+ * Gauge setengah lingkaran seperti foto referensi, dengan sedikit efek 3D:
  *  1. halo lembut di belakang pita
- *  2. pita latar (bagian yang belum tercapai) berwarna sangat muda
- *  3. pita aktif dengan gradasi sweep dari kiri sampai posisi progres
- *  4. pinggir luar dan bagian bawah dibuat memudar ke warna kartu
- *  5. setengah lingkaran dalam (warna kartu) membentuk tepi dalam yang tegas
- *  6. garis penanda, titik-titik halus, dan jarum gelap di posisi progres
- * Koordinat dihitung dari ukuran referensi 442 x 323 (1 satuan = u px).
+ *  2. pita latar (bagian yang belum tercapai)
+ *  3. bayangan jatuh, pita aktif bergradasi, dan pembayangan tabung
+ *     (gelap di tepi, terang di tengah pita)
+ *  4. tepi luar dan bagian bawah memudar ke warna kartu
+ *  5. setengah lingkaran dalam (tepi tegas) + garis bayangan tipis di tepinya
+ *  6. kilap tipis sepanjang pita, garis penanda, titik halus, dan jarum berbayangan
+ * Koordinat dihitung dari ukuran 442 x 268 (1 satuan = u px).
  */
 @Composable
 private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = Modifier) {
@@ -416,14 +421,17 @@ private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = 
     Canvas(modifier) {
         val u = size.width / 442f
         val cx = size.width / 2f
-        val cy = 245f * u                 // garis dasar gauge
+        val cy = 197f * u                 // garis dasar gauge
         val center = Offset(cx, cy)
         val rIn = 106f * u                // tepi dalam pita
         val rOut = 172f * u               // tepi luar pita
         val sweep = 180f * value
         val bg = p.progressCard
+        val shade = p.gaugeShade
+        val shine = p.gaugeShine
         val sectorTopLeft = Offset(cx - rOut, cy - rOut)
         val sectorSize = Size(rOut * 2f, rOut * 2f)
+        val needleAngle = 180f + sweep
 
         clipRect(left = 0f, top = 0f, right = size.width, bottom = cy) {
             // 1. halo
@@ -451,8 +459,18 @@ private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = 
                 size = sectorSize
             )
 
-            // 3. pita aktif (gradasi sweep dari kiri ke posisi progres)
             if (value > 0f) {
+                // 3a. bayangan jatuh di bawah pita aktif
+                drawArc(
+                    color = shade.copy(alpha = shade.alpha * 0.75f),
+                    startAngle = 180f,
+                    sweepAngle = sweep,
+                    useCenter = true,
+                    topLeft = sectorTopLeft + Offset(0f, 6f * u),
+                    size = sectorSize
+                )
+
+                // 3b. pita aktif (gradasi sweep dari kiri ke posisi progres)
                 val fEnd = (180f + sweep) / 360f
                 drawArc(
                     brush = Brush.sweepGradient(
@@ -469,14 +487,36 @@ private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = 
                     topLeft = sectorTopLeft,
                     size = sectorSize
                 )
+
+                // 3c. pembayangan tabung: gelap di tepi dalam & luar, terang di sepertiga pita
+                drawArc(
+                    brush = Brush.radialGradient(
+                        0.00f to Color.Transparent,
+                        0.60f to Color.Transparent,
+                        0.62f to shade,
+                        0.72f to shade.copy(alpha = shade.alpha * 0.20f),
+                        0.80f to shine,
+                        0.89f to Color.Transparent,
+                        0.96f to shade.copy(alpha = shade.alpha * 0.55f),
+                        1.00f to shade.copy(alpha = shade.alpha * 0.90f),
+                        center = center,
+                        radius = rOut
+                    ),
+                    startAngle = 180f,
+                    sweepAngle = sweep,
+                    useCenter = true,
+                    topLeft = sectorTopLeft,
+                    size = sectorSize
+                )
             }
 
-            // 4a. tepi luar memudar ke warna kartu
+            // 4a. tepi luar memudar ke warna kartu (dibuat tipis agar bentuk pita tetap tegas)
             drawCircle(
                 brush = Brush.radialGradient(
                     0.000f to Color.Transparent,
-                    0.730f to Color.Transparent,
-                    0.893f to bg.copy(alpha = 0.50f),
+                    0.800f to Color.Transparent,
+                    0.893f to bg.copy(alpha = 0.30f),
+                    0.950f to bg.copy(alpha = 0.80f),
                     1.000f to bg,
                     center = center,
                     radius = rOut * 1.12f
@@ -498,12 +538,36 @@ private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = 
                 size = Size(size.width, fadeH)
             )
 
-            // 5. setengah lingkaran dalam
+            // 5a. setengah lingkaran dalam
             drawCircle(color = bg, radius = rIn, center = center)
         }
 
-        // 6a. garis penanda tiap 15 derajat (kecuali dekat jarum)
-        val needleAngle = 180f + sweep
+        // 5b. garis bayangan tipis di tepi dalam pita (memberi kesan kedalaman)
+        drawArc(
+            color = shade.copy(alpha = shade.alpha * 0.55f),
+            startAngle = 194f,
+            sweepAngle = 152f,
+            useCenter = false,
+            topLeft = Offset(cx - (rIn + 2f * u), cy - (rIn + 2f * u)),
+            size = Size((rIn + 2f * u) * 2f, (rIn + 2f * u) * 2f),
+            style = Stroke(width = 4f * u)
+        )
+
+        // 6a. kilap tipis sepanjang pita aktif
+        if (sweep > 30f) {
+            val rs = rIn + 0.74f * (rOut - rIn)
+            drawArc(
+                color = shine,
+                startAngle = 204f,
+                sweepAngle = sweep - 30f,
+                useCenter = false,
+                topLeft = Offset(cx - rs, cy - rs),
+                size = Size(rs * 2f, rs * 2f),
+                style = Stroke(width = 2.6f * u, cap = StrokeCap.Round)
+            )
+        }
+
+        // 6b. garis penanda tiap 15 derajat (kecuali dekat jarum)
         for (i in 1..11) {
             val deg = 180f + i * 15f
             if (kotlin.math.abs(deg - needleAngle) < 7f) continue
@@ -520,33 +584,44 @@ private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = 
             )
         }
 
-        // 6b. titik-titik halus di bagian atas pita aktif (acak tetap, bukan animasi)
-        if (sweep > 12f) {
+        // 6c. titik halus: sedikit saja dan tersebar merata di sepanjang pita aktif
+        //     (satu titik per irisan sudut, posisi acak tetap, bukan animasi)
+        if (sweep > 20f) {
             val rnd = Random(42)
-            val startDeg = 196f
-            val endDeg = needleAngle - 5f
-            repeat(90) {
-                val t = (rnd.nextFloat() + kotlin.math.sqrt(rnd.nextFloat())) / 2f
-                val deg = startDeg + (endDeg - startDeg) * t
-                val r = rIn + (rOut - rIn) * (0.30f + 0.62f * rnd.nextFloat())
+            val startDeg = 200f
+            val endDeg = needleAngle - 6f
+            val count = ((sweep / 180f) * 26f).toInt().coerceAtLeast(6)
+            repeat(count) { i ->
+                val deg = startDeg + (endDeg - startDeg) * (i + 0.15f + 0.70f * rnd.nextFloat()) / count
+                val r = rIn + (rOut - rIn) * (0.40f + 0.50f * rnd.nextFloat())
                 val rad = deg * PI.toFloat() / 180f
                 drawCircle(
-                    color = p.gaugeDot.copy(alpha = 0.50f + 0.45f * rnd.nextFloat()),
-                    radius = (0.9f + 0.8f * rnd.nextFloat()) * u,
+                    color = p.gaugeDot.copy(alpha = 0.45f + 0.40f * rnd.nextFloat()),
+                    radius = (0.9f + 0.7f * rnd.nextFloat()) * u,
                     center = Offset(cx + r * cos(rad), cy + r * sin(rad))
                 )
             }
         }
 
-        // 6c. jarum
+        // 6d. jarum (dengan bayangan tipis)
         if (value > 0f) {
             val rad = needleAngle * PI.toFloat() / 180f
             val r1 = rIn + 8f * u
             val r2 = rIn + 48f * u
+            val s1 = Offset(cx + r1 * cos(rad), cy + r1 * sin(rad))
+            val s2 = Offset(cx + r2 * cos(rad), cy + r2 * sin(rad))
+            val off = Offset(1.5f * u, 2.5f * u)
+            drawLine(
+                color = Color.Black.copy(alpha = 0.18f),
+                start = s1 + off,
+                end = s2 + off,
+                strokeWidth = 3.6f * u,
+                cap = StrokeCap.Round
+            )
             drawLine(
                 color = p.textPrimary,
-                start = Offset(cx + r1 * cos(rad), cy + r1 * sin(rad)),
-                end = Offset(cx + r2 * cos(rad), cy + r2 * sin(rad)),
+                start = s1,
+                end = s2,
                 strokeWidth = 3.6f * u,
                 cap = StrokeCap.Round
             )

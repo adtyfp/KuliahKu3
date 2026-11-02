@@ -308,7 +308,11 @@ fun ReferenceScreen(
         }
 
         if (state.showFilterSheet) {
-            ModalBottomSheet(onDismissRequest = { viewModel.showFilterSheet(false) }) {
+            ModalBottomSheet(
+                onDismissRequest = { viewModel.showFilterSheet(false) },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                dragHandle = { BottomSheetDefaults.DragHandle() }
+            ) {
                 FilterSheetContent(
                     state = state,
                     onYearRange = { from, to -> viewModel.setYearRange(from, to) },
@@ -549,56 +553,131 @@ private fun FilterSheetContent(
     onOpenAccess: (Boolean) -> Unit,
     onSort: (SortOrder) -> Unit
 ) {
-    Column(Modifier.padding(20.dp)) {
-        Text("Urutkan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        SortOrder.entries.forEach { s ->
-            Row(
-                Modifier.fillMaxWidth().clickable { onSort(s) },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(selected = state.sortOrder == s, onClick = { onSort(s) })
-                Text(s.label)
-            }
+    val p = refPalette()
+    Column(Modifier.padding(24.dp)) {
+        AnimatedEntry(delay = 0, duration = 250) {
+            Text("Urutkan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = p.textPrimary)
         }
         Spacer(Modifier.height(16.dp))
-        Text("Tahun terbit", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        
+        AnimatedEntry(delay = 50, duration = 250) {
+            Column {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SortOrder.entries.take(2).forEach { s ->
+                        FilterChipModern(
+                            label = s.label,
+                            selected = state.sortOrder == s,
+                            p = p,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSort(s) }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SortOrder.entries.drop(2).forEach { s ->
+                        FilterChipModern(
+                            label = s.label,
+                            selected = state.sortOrder == s,
+                            p = p,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSort(s) }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        AnimatedEntry(delay = 100, duration = 250) {
+            Text("Tahun Terbit", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = p.textPrimary)
+        }
+        Spacer(Modifier.height(16.dp))
+        
         val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
         val ranges = listOf(
             null to null,
-            (currentYear - 1) to currentYear,
             (currentYear - 3) to currentYear,
             (currentYear - 5) to currentYear,
             (currentYear - 10) to currentYear
         )
-        ranges.forEach { (from, to) ->
-            Row(
-                Modifier.fillMaxWidth().clickable { onYearRange(from, to) },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = state.yearFrom == from && state.yearTo == to,
-                    onClick = { onYearRange(from, to) }
-                )
-                Text(
-                    when {
-                        from == null -> "Semua tahun"
-                        from == to -> "$from"
-                        else -> "$from - $to"
+        
+        AnimatedEntry(delay = 150, duration = 250) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ranges.chunked(2).forEach { pair ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { (from, to) ->
+                            val label = when {
+                                from == null -> "Semua"
+                                else -> "$from-$to"
+                            }
+                            FilterChipModern(
+                                label = label,
+                                selected = state.yearFrom == from && state.yearTo == to,
+                                p = p,
+                                modifier = Modifier.weight(1f),
+                                onClick = { onYearRange(from, to) }
+                            )
+                        }
                     }
-                )
+                }
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Hanya Akses Terbuka", Modifier.weight(1f))
-            Switch(checked = state.onlyOpenAccess, onCheckedChange = onOpenAccess)
-        }
+
         Spacer(Modifier.height(24.dp))
+        AnimatedEntry(delay = 200, duration = 250) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = p.searchBg,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Hanya Akses Terbuka", fontWeight = FontWeight.SemiBold, color = p.textPrimary)
+                        Text("Tampilkan jurnal yang bisa dibaca penuh", fontSize = 12.sp, color = p.textMuted)
+                    }
+                    Switch(
+                        checked = state.onlyOpenAccess, 
+                        onCheckedChange = onOpenAccess,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = p.accent
+                        )
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun FilterChipModern(
+    label: String,
+    selected: Boolean,
+    p: RefPalette,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        selected = selected,
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) p.accent else p.searchBg,
+        border = if (selected) null else BorderStroke(1.dp, p.border),
+        modifier = modifier.height(44.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                label,
+                color = if (selected) Color.White else p.textPrimary,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 14.sp
+            )
+        }
     }
 }
 

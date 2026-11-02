@@ -6,6 +6,7 @@ import com.kuliahku.data.model.Event
 import com.kuliahku.data.model.Task
 import com.kuliahku.data.repository.EventRepository
 import com.kuliahku.data.repository.TaskRepository
+import com.kuliahku.notification.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -51,7 +52,8 @@ sealed interface CalendarEvent {
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
     private val eventRepo: EventRepository,
-    private val taskRepo: TaskRepository
+    private val taskRepo: TaskRepository,
+    private val scheduler: ReminderScheduler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -114,7 +116,10 @@ class CalendarViewModel @Inject constructor(
         val key = _uiState.value.pendingDeleteOccurrenceKey ?: return
         viewModelScope.launch {
             eventRepo.excludeOccurrence(ev.id, key)
-                .onSuccess { _events.send(CalendarEvent.ShowMessage("Kemunculan ini dihapus.")) }
+                .onSuccess {
+                    scheduler.scheduleEventReminder(ev) // Reschedule untuk occurrence berikutnya
+                    _events.send(CalendarEvent.ShowMessage("Kemunculan ini dihapus."))
+                }
                 .onFailure { _events.send(CalendarEvent.ShowMessage(it.message ?: "Gagal.")) }
             cancelDelete()
         }
@@ -124,7 +129,10 @@ class CalendarViewModel @Inject constructor(
         val ev = _uiState.value.pendingDeleteEvent ?: return
         viewModelScope.launch {
             eventRepo.delete(ev.id)
-                .onSuccess { _events.send(CalendarEvent.ShowMessage("Acara dihapus.")) }
+                .onSuccess {
+                    scheduler.cancelEventReminders(ev.id)
+                    _events.send(CalendarEvent.ShowMessage("Acara dihapus."))
+                }
                 .onFailure { _events.send(CalendarEvent.ShowMessage(it.message ?: "Gagal.")) }
             cancelDelete()
         }
@@ -133,22 +141,28 @@ class CalendarViewModel @Inject constructor(
     private fun recompute() {
         val s = _uiState.value
 
-        // Hitung hari dengan entri di bulan yang ditampilkan
+        // Hitung hari dengan entri (Range: 1 bulan sebelum sampai 1 bulan sesudah currentMonth untuk animasi smooth)
         val daysWithEntries = mutableSetOf<String>()
-        val monthStart = (s.currentMonth.clone() as Calendar).apply {
+        val rangeStart = (s.currentMonth.clone() as Calendar).apply {
+            add(Calendar.MONTH, -1)
             set(Calendar.DAY_OF_MONTH, 1)
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }
-        val daysInMonth = s.currentMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
-        for (day in 1..daysInMonth) {
-            val cal = monthStart.clone() as Calendar
-            cal.set(Calendar.DAY_OF_MONTH, day)
-            val key = EventRepository.keyOf(cal)
-            val hasEvent = s.events.any { eventRepo.occursOn(it, cal) }
+        val rangeEnd = (s.currentMonth.clone() as Calendar).apply {
+            add(Calendar.MONTH, 2) // Sampai awal bulan berikutnya lagi
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+
+        val tempCal = rangeStart.clone() as Calendar
+        while (tempCal.before(rangeEnd)) {
+            val key = EventRepository.keyOf(tempCal)
+            val hasEvent = s.events.any { eventRepo.occursOn(it, tempCal) }
             val hasTask = s.tasks.any { task ->
-                task.deadline?.toDate()?.let { sameDay(it, cal.time) } ?: false
+                task.deadline?.toDate()?.let { sameDay(it, tempCal.time) } ?: false
             }
             if (hasEvent || hasTask) daysWithEntries.add(key)
+            tempCal.add(Calendar.DAY_OF_MONTH, 1)
         }
 
         // Entri untuk tanggal terpilih

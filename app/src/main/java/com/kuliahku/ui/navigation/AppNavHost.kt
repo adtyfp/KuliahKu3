@@ -39,7 +39,6 @@ import com.kuliahku.ui.finance.NotificationListenerIntroScreen
 import com.kuliahku.ui.scan.RecordAudioScreen
 import com.kuliahku.ui.components.FloatingBottomBar
 import com.kuliahku.ui.components.bottomNavItems
-import com.kuliahku.ui.preview.ComponentPreviewScreen
 
 @Composable
 fun AppNavHost(
@@ -167,9 +166,6 @@ fun AppNavHost(
                 val materialId = backStackEntry.arguments?.getString("materialId") ?: ""
                 com.kuliahku.ui.scan.MaterialResultScreen(navController)
             }
-            composable(Routes.COMPONENT_PREVIEW) { ComponentPreviewScreen() }
-
-
         }
 
         AnimatedVisibility(

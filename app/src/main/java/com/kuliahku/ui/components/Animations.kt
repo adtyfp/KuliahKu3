@@ -11,7 +11,7 @@ import kotlinx.coroutines.delay
 fun AnimatedEntry(
     modifier: Modifier = Modifier,
     delay: Int = 0,
-    duration: Int = 800,
+    duration: Int = 250,
     content: @Composable () -> Unit
 ) {
     val animatedProgress = remember { Animatable(0f) }
@@ -22,7 +22,7 @@ fun AnimatedEntry(
         }
         animatedProgress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(duration, easing = EaseOutQuart)
+            animationSpec = tween(duration, easing = FastOutSlowInEasing)
         )
     }
 

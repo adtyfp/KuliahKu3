@@ -1,10 +1,23 @@
 package com.kuliahku.ui.calendar
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,7 +25,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +42,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -39,6 +57,7 @@ import com.kuliahku.data.model.ReminderStyle
 import com.kuliahku.ui.theme.BadgeHighBg
 import com.kuliahku.ui.theme.BadgeLowBg
 import com.kuliahku.ui.theme.BadgeMediumBg
+import com.kuliahku.ui.components.WheelDateTimePicker
 import java.util.Calendar
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,8 +126,11 @@ fun AddEventScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var showStartPicker by remember { mutableStateOf(false) }
-    var showEndPicker by remember { mutableStateOf(false) }
+    var expandedStart by remember { mutableStateOf(false) }
+    var expandedEnd by remember { mutableStateOf(false) }
+    var expandedRepeat by remember { mutableStateOf(false) }
+    var expandedStyle by remember { mutableStateOf(false) }
+    var expandedOffset by remember { mutableStateOf(false) }
     val p = eventPalette()
 
     LaunchedEffect(Unit) {
@@ -205,6 +227,7 @@ fun AddEventScreen(
                 Column(
                     Modifier
                         .fillMaxWidth()
+                        .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
                         .cardSurface(p, RoundedCornerShape(20.dp))
                         .padding(vertical = 9.dp)
                 ) {
@@ -224,14 +247,56 @@ fun AddEventScreen(
                     }
                     RowDivider(p)
                     FieldRow(
-                        label = "Waktu Mulai Acara", value = state.startLabel, p = p,
-                        startPadding = 26.dp, chevronEnd = 27.dp
-                    ) { showStartPicker = true }
+                        label = "Waktu Mulai", value = state.startLabel, p = p,
+                        startPadding = 26.dp, chevronEnd = 27.dp,
+                        isExpanded = expandedStart
+                    ) {
+                        expandedStart = !expandedStart
+                        if (expandedStart) {
+                            expandedEnd = false
+                            expandedRepeat = false
+                            expandedStyle = false
+                            expandedOffset = false
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = expandedStart,
+                        enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(250)),
+                        exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                    ) {
+                        WheelDateTimePicker(
+                            initialMillis = state.startMillis,
+                            onDateTimeChanged = viewModel::onStartChange,
+                            textPrimary = p.textPrimary,
+                            textSecondary = p.textSecondary
+                        )
+                    }
                     RowDivider(p)
                     FieldRow(
-                        label = "Waktu Berakhir Acara", value = state.endLabel, p = p,
-                        startPadding = 26.dp, chevronEnd = 27.dp
-                    ) { showEndPicker = true }
+                        label = "Waktu Berakhir", value = state.endLabel, p = p,
+                        startPadding = 26.dp, chevronEnd = 27.dp,
+                        isExpanded = expandedEnd
+                    ) {
+                        expandedEnd = !expandedEnd
+                        if (expandedEnd) {
+                            expandedStart = false
+                            expandedRepeat = false
+                            expandedStyle = false
+                            expandedOffset = false
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = expandedEnd,
+                        enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(250)),
+                        exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                    ) {
+                        WheelDateTimePicker(
+                            initialMillis = state.endMillis,
+                            onDateTimeChanged = viewModel::onEndChange,
+                            textPrimary = p.textPrimary,
+                            textSecondary = p.textSecondary
+                        )
+                    }
                     state.timeError?.let {
                         Text(
                             it,
@@ -268,6 +333,16 @@ fun AddEventScreen(
                             "Tahunan" to EventRepeat.YEARLY
                         ),
                         p = p,
+                        expanded = expandedRepeat,
+                        onExpandToggle = {
+                            expandedRepeat = !expandedRepeat
+                            if (expandedRepeat) {
+                                expandedStart = false
+                                expandedEnd = false
+                                expandedStyle = false
+                                expandedOffset = false
+                            }
+                        },
                         onSelect = { viewModel.onRepeatChange(it) }
                     )
                     RowDivider(p)
@@ -284,6 +359,16 @@ fun AddEventScreen(
                             "Alarm" to ReminderStyle.ALARM
                         ),
                         p = p,
+                        expanded = expandedStyle,
+                        onExpandToggle = {
+                            expandedStyle = !expandedStyle
+                            if (expandedStyle) {
+                                expandedStart = false
+                                expandedEnd = false
+                                expandedRepeat = false
+                                expandedOffset = false
+                            }
+                        },
                         onSelect = { viewModel.onStyleChange(it) }
                     )
                     RowDivider(p)
@@ -300,6 +385,16 @@ fun AddEventScreen(
                             "1 Hari Sebelumnya" to 1440
                         ),
                         p = p,
+                        expanded = expandedOffset,
+                        onExpandToggle = {
+                            expandedOffset = !expandedOffset
+                            if (expandedOffset) {
+                                expandedStart = false
+                                expandedEnd = false
+                                expandedRepeat = false
+                                expandedStyle = false
+                            }
+                        },
                         onSelect = { viewModel.onOffsetChange(it) }
                     )
                 }
@@ -326,21 +421,6 @@ fun AddEventScreen(
                 )
             }
         }
-    }
-
-    if (showStartPicker) {
-        DateTimePickerDialog(
-            initialMillis = state.startMillis,
-            onConfirm = { viewModel.onStartChange(it); showStartPicker = false },
-            onDismiss = { showStartPicker = false }
-        )
-    }
-    if (showEndPicker) {
-        DateTimePickerDialog(
-            initialMillis = state.endMillis,
-            onConfirm = { viewModel.onEndChange(it); showEndPicker = false },
-            onDismiss = { showEndPicker = false }
-        )
     }
 }
 
@@ -445,6 +525,7 @@ private fun FieldRow(
     p: EventPalette,
     startPadding: Dp,
     chevronEnd: Dp,
+    isExpanded: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -457,10 +538,10 @@ private fun FieldRow(
     ) {
         RowLabel(label, value, p, Modifier.weight(1f))
         Icon(
-            Icons.Filled.ExpandMore,
+            if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.UnfoldMore,
             contentDescription = null,
             tint = p.chevron,
-            modifier = Modifier.padding(end = 5.dp).size(34.dp)
+            modifier = Modifier.padding(end = 5.dp).size(24.dp)
         )
     }
 }
@@ -486,88 +567,61 @@ private fun RowLabel(label: String, value: String, p: EventPalette, modifier: Mo
 }
 
 // Baris dropdown kartu 2: tinggi 52, teks mulai x=49 (padding 24), chevron tengah x=370.
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> DropdownField(
     label: String,
     value: String,
     options: List<Pair<String, T>>,
     p: EventPalette,
+    expanded: Boolean,
+    onExpandToggle: () -> Unit,
     onSelect: (T) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+    Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .height(52.dp)
-                .menuAnchor()
-                .clickable { expanded = true }
+                .clickable { onExpandToggle() }
                 .padding(start = 24.dp, end = 30.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             RowLabel(label, value, p, Modifier.weight(1f))
             Icon(
-                Icons.Filled.ExpandMore,
+                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                 contentDescription = null,
                 tint = p.chevron,
                 modifier = Modifier.size(34.dp)
             )
         }
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (lbl, v) ->
-                DropdownMenuItem(text = { Text(lbl) }, onClick = { onSelect(v); expanded = false })
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(250)),
+            exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            ) {
+                options.forEach { (lbl, v) ->
+                    val isSelected = lbl == value
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(v); onExpandToggle() }
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = lbl,
+                            fontSize = 15.sp,
+                            color = if (isSelected) p.button else p.textPrimary,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DateTimePickerDialog(
-    initialMillis: Long,
-    onConfirm: (Long) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var step by remember { mutableStateOf(0) }
-    var cal by remember { mutableStateOf(Calendar.getInstance().apply { timeInMillis = initialMillis }) }
-
-    if (step == 0) {
-        val dpState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
-        DatePickerDialog(
-            onDismissRequest = onDismiss,
-            confirmButton = {
-                TextButton(onClick = {
-                    dpState.selectedDateMillis?.let {
-                        val c = Calendar.getInstance().apply { timeInMillis = it }
-                        cal.set(Calendar.YEAR, c.get(Calendar.YEAR))
-                        cal.set(Calendar.MONTH, c.get(Calendar.MONTH))
-                        cal.set(Calendar.DAY_OF_MONTH, c.get(Calendar.DAY_OF_MONTH))
-                    }
-                    step = 1
-                }) { Text("Lanjut") }
-            },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
-        ) { DatePicker(state = dpState) }
-    } else {
-        val tpState = rememberTimePickerState(
-            initialHour = cal.get(Calendar.HOUR_OF_DAY),
-            initialMinute = cal.get(Calendar.MINUTE)
-        )
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text("Pilih Waktu") },
-            text = { TimePicker(state = tpState) },
-            confirmButton = {
-                TextButton(onClick = {
-                    cal.set(Calendar.HOUR_OF_DAY, tpState.hour)
-                    cal.set(Calendar.MINUTE, tpState.minute)
-                    cal.set(Calendar.SECOND, 0)
-                    onConfirm(cal.timeInMillis)
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
-        )
     }
 }
 

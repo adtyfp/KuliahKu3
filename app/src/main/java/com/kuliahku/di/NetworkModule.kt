@@ -64,11 +64,19 @@ object NetworkModule {
 
         val credentials = BasicAWSCredentials(accessKey, secretKey)
         
-        // AWS Android SDK memiliki bug di mana deteksi signer otomatis crash jika endpoint kustom diset
-        // sebelum region stabil. Kita gunakan constructor paling dasar dan konfigurasi manual.
-        val client = AmazonS3Client(credentials)
+        // Konfigurasi untuk menonaktifkan fitur AWS yang tidak didukung R2
+        val configuration = ClientConfiguration().apply {
+            maxErrorRetry = 3
+            connectionTimeout = 30000
+            socketTimeout = 30000
+        }
+        
+        // Mematikan 'Expect: 100-continue' secara global untuk SDK AWS
+        System.setProperty("com.amazonaws.sdk.disableExpectContinue", "true")
 
-        // Konfigurasi wajib R2
+        val client = AmazonS3Client(credentials, configuration)
+
+        // R2 Wajib: PathStyleAccess dan DisableChunkedEncoding
         client.setS3ClientOptions(
             com.amazonaws.services.s3.S3ClientOptions.builder()
                 .setPathStyleAccess(true)
@@ -76,11 +84,10 @@ object NetworkModule {
                 .build()
         )
 
-        // Jangan gunakan setEndpoint() jika accountId kosong
         if (!accountId.isNullOrBlank()) {
             val endpoint = "https://$accountId.r2.cloudflarestorage.com"
             try {
-                // Trik: Set region ke us-east-1 DULU, lalu set endpoint
+                // R2 menggunakan us-east-1 untuk kompatibilitas signature
                 client.setRegion(Region.getRegion(Regions.US_EAST_1))
                 client.setEndpoint(endpoint)
                 android.util.Log.d("NetworkModule", "S3 R2 Configured: $endpoint")

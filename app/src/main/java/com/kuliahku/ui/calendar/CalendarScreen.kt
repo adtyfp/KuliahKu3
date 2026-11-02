@@ -1,5 +1,6 @@
 package com.kuliahku.ui.calendar
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -12,10 +13,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.PieChart
@@ -43,6 +46,7 @@ import androidx.navigation.NavHostController
 import com.kuliahku.data.model.EventType
 import com.kuliahku.data.repository.EventRepository
 import com.kuliahku.ui.components.AnimatedEntry
+import com.kuliahku.ui.components.KuliahkuDialog
 import com.kuliahku.ui.navigation.Routes
 import com.kuliahku.util.DateFormatters
 import java.util.Calendar
@@ -100,8 +104,8 @@ private val DarkCalPalette = CalPalette(
 private fun calPalette(): CalPalette =
     if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkCalPalette else LightCalPalette
 
-/** Desain tidak menampilkan titik penanda hari yang punya agenda. true = tampilkan lagi. */
-private const val SHOW_ENTRY_DOTS = false
+/** Desain menampilkan titik penanda hari yang punya agenda. */
+private const val SHOW_ENTRY_DOTS = true
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HARI LIBUR NASIONAL (bukan cuti bersama)
@@ -213,13 +217,13 @@ fun CalendarScreen(
             // ── Header (ikon tengah y=75, judul x=60) ──────────────────────────
             AnimatedEntry(delay = 0) {
                 Row(
-                    Modifier.fillMaxWidth().padding(start = 22.dp),
+                    Modifier.fillMaxWidth().padding(start = 14.dp, top = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Filled.ArrowBackIosNew, "Kembali", Modifier.size(24.dp), tint = p.textPrimary)
+                    IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Filled.ArrowBackIosNew, "Kembali", Modifier.size(22.dp), tint = p.textPrimary)
                     }
-                    Spacer(Modifier.width(2.dp))
+                    Spacer(Modifier.width(4.dp))
                     Text(
                         "Kalender",
                         style = MaterialTheme.typography.headlineMedium.copy(
@@ -280,20 +284,48 @@ fun CalendarScreen(
                                 fontSize = 14.sp,
                                 lineHeight = 20.sp,
                                 textAlign = TextAlign.Center,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Bold,
                                 color = if (index == 0) p.holiday else p.textPrimary
                             )
                         }
                     }
-                    Spacer(Modifier.height(15.dp))
-                    MonthGrid(
-                        month = state.currentMonth,
-                        selectedDate = state.selectedDate,
-                        daysWithEntries = state.daysWithEntries,
-                        p = p,
-                        modifier = Modifier.padding(start = 16.dp, end = 14.dp),
-                        onSelect = { viewModel.selectDate(it) }
+                    Spacer(Modifier.height(12.dp))
+                    
+                    // Garis mendatar di bawah nama hari (seperti divider agenda)
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .height(1.dp)
+                            .background(p.divider.copy(alpha = 0.5f))
                     )
+                    
+                    Spacer(Modifier.height(8.dp))
+                    
+                    // Animasi bergeser saat ganti bulan
+                    val monthTime = state.currentMonth.timeInMillis
+                    AnimatedContent(
+                        targetState = monthTime,
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                // Geser ke kiri (bulan depan)
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
+                            } else {
+                                // Geser ke kanan (bulan sebelumnya)
+                                (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
+                            }
+                        },
+                        label = "MonthSlide"
+                    ) { _ ->
+                        MonthGrid(
+                            month = state.currentMonth,
+                            selectedDate = state.selectedDate,
+                            daysWithEntries = state.daysWithEntries,
+                            p = p,
+                            modifier = Modifier.padding(start = 16.dp, end = 14.dp),
+                            onSelect = { viewModel.selectDate(it) }
+                        )
+                    }
                 }
             }
 
@@ -349,14 +381,15 @@ fun CalendarScreen(
                     Spacer(Modifier.height(11.dp))
 
                     // ── Daftar agenda: garis 2 dp (x=29..412), pitch item 111 ───────────────
-                    Column(Modifier.fillMaxWidth().padding(start = 29.dp, end = 28.dp)) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(1.5.dp).background(p.divider.copy(alpha = 0.5f)))
+                        
                         if (state.selectedDayEntries.isEmpty()) {
-                            Box(Modifier.fillMaxWidth().height(2.dp).background(p.divider))
                             Text(
                                 "Tidak ada agenda pada tanggal ini.",
                                 fontSize = 14.sp,
                                 color = p.textSecondary,
-                                modifier = Modifier.padding(start = 9.dp, top = 16.dp, bottom = 16.dp)
+                                modifier = Modifier.padding(start = 38.dp, top = 16.dp, bottom = 16.dp)
                             )
                         } else {
                             state.selectedDayEntries.forEach { entry ->
@@ -407,20 +440,30 @@ fun CalendarScreen(
     }
 
     if (state.showRepeatDeleteDialog) {
-        AlertDialog(
+        KuliahkuDialog(
             onDismissRequest = viewModel::cancelDelete,
-            title = { Text("Hapus Acara Berulang") },
-            text = { Text("Acara ini berulang. Hapus hanya kemunculan ini, atau seluruh rangkaian?") },
-            confirmButton = { TextButton(onClick = viewModel::deleteAllOccurrences) { Text("Semua") } },
-            dismissButton = { TextButton(onClick = viewModel::deleteOnlyThis) { Text("Hanya Ini") } }
+            title = "Hapus Acara Berulang",
+            text = "Acara ini berulang. Hapus hanya kemunculan ini, atau seluruh rangkaian acara ke depannya?",
+            icon = Icons.Default.DeleteSweep,
+            iconColor = MaterialTheme.colorScheme.error,
+            confirmText = "Semua",
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = viewModel::deleteAllOccurrences,
+            dismissText = "Hanya Ini",
+            onDismiss = viewModel::deleteOnlyThis
         )
     } else if (state.pendingDeleteEvent != null) {
-        AlertDialog(
+        KuliahkuDialog(
             onDismissRequest = viewModel::cancelDelete,
-            title = { Text("Hapus Acara?") },
-            text = { Text("Acara akan dihapus permanen.") },
-            confirmButton = { TextButton(onClick = viewModel::deleteAllOccurrences) { Text("Hapus") } },
-            dismissButton = { TextButton(onClick = viewModel::cancelDelete) { Text("Batal") } }
+            title = "Hapus Acara?",
+            text = "Acara ini akan dihapus secara permanen dari kalender Anda.",
+            icon = Icons.Default.WarningAmber,
+            iconColor = MaterialTheme.colorScheme.error,
+            confirmText = "Hapus",
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = viewModel::deleteAllOccurrences,
+            dismissText = "Batal",
+            onDismiss = viewModel::cancelDelete
         )
     }
 }
@@ -496,7 +539,8 @@ private fun MonthGrid(
                                 "%02d".format(cal.get(Calendar.DAY_OF_MONTH)),
                                 fontSize = 14.sp,
                                 lineHeight = 20.sp,
-                                fontWeight = if (isToday && !isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                // Tanggal Bold
+                                fontWeight = FontWeight.Bold,
                                 color = when {
                                     isSelected -> p.selectedText
                                     isRedDay && isCurrentMonth -> p.holiday
@@ -507,14 +551,15 @@ private fun MonthGrid(
                                 }
                             )
                         }
-                        if (SHOW_ENTRY_DOTS && hasEntries && !isSelected) {
+                        // Titik penanda agenda (tetap muncul saat terpilih)
+                        if (SHOW_ENTRY_DOTS && hasEntries) {
                             Box(
                                 Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(bottom = 4.dp)
                                     .size(4.dp)
                                     .clip(CircleShape)
-                                    .background(p.accent)
+                                    .background(if (isSelected) p.selectedText else p.accent)
                             )
                         }
                     }
@@ -541,7 +586,8 @@ private fun AgendaItem(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .padding(horizontal = 22.dp, vertical = 6.dp)
+            .height(111.dp)
             .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.08f)),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -550,7 +596,7 @@ private fun AgendaItem(
         Row(
             Modifier
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.size(40.dp).background(p.accent.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
@@ -581,13 +627,13 @@ private fun AgendaItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Text(
+                    timeRange,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = p.textSecondary
+                )
             }
-            Text(
-                timeRange,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = p.textSecondary
-            )
         }
     }
 }

@@ -96,8 +96,12 @@ class MaterialRepository @Inject constructor(
                     contentLength = bytes.size.toLong()
                 }
 
-                s3Client.putObject("kuliahku-storage", path, bytes.inputStream(), metadata)
-                path
+                val bucket = com.kuliahku.BuildConfig.R2_BUCKET_NAME
+                s3Client.putObject(bucket, path, bytes.inputStream(), metadata)
+                
+                // Return URL publik untuk Material
+                val publicUrl = com.kuliahku.BuildConfig.R2_PUBLIC_URL.removeSuffix("/")
+                "$publicUrl/$path"
             }
         }
 

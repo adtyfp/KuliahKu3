@@ -40,6 +40,8 @@ android {
         buildConfigField("String", "R2_ACCESS_KEY", "\"${localProperties.getProperty("R2_ACCESS_KEY") ?: ""}\"")
         buildConfigField("String", "R2_SECRET_KEY", "\"${localProperties.getProperty("R2_SECRET_KEY") ?: ""}\"")
         buildConfigField("String", "R2_ACCOUNT_ID", "\"${localProperties.getProperty("R2_ACCOUNT_ID") ?: ""}\"")
+        buildConfigField("String", "R2_BUCKET_NAME", "\"${localProperties.getProperty("R2_BUCKET_NAME") ?: "kuliahku-storage"}\"")
+        buildConfigField("String", "R2_PUBLIC_URL", "\"${localProperties.getProperty("R2_PUBLIC_URL") ?: ""}\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY") ?: ""}\"")
     }
 

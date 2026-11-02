@@ -13,162 +13,95 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-@Composable
-fun rememberHomeIcon(): ImageVector = remember {
+private fun roundRectPath(x: Float, y: Float, w: Float, h: Float, r: Float): String =
+    "M${x + r} ${y}h${w - 2 * r}a$r $r 0 0 1 $r $r" +
+            "v${h - 2 * r}a$r $r 0 0 1 -$r $r" +
+            "h-${w - 2 * r}a$r $r 0 0 1 -$r -$r" +
+            "v-${h - 2 * r}a$r $r 0 0 1 $r -${r}z"
+
+private fun ImageVector.Builder.solid(d: String): ImageVector.Builder =
+    addPath(pathData = addPathNodes(d), fill = SolidColor(Color.Black))
+
+private fun ImageVector.Builder.outline(d: String, width: Float): ImageVector.Builder =
+    addPath(
+        pathData = addPathNodes(d),
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = width,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    )
+
+private fun navIcon(name: String, build: ImageVector.Builder.() -> Unit): ImageVector =
     ImageVector.Builder(
-        name = "Home",
+        name = name,
         defaultWidth = 24.dp,
         defaultHeight = 24.dp,
         viewportWidth = 24f,
         viewportHeight = 24f
-    ).path(fill = SolidColor(Color.Black)) {
-        moveTo(12f, 3f)
-        lineTo(4f, 10f)
-        verticalLineTo(19f)
-        arcTo(1f, 1f, 0f, false, false, 5f, 20f)
-        horizontalLineTo(9f)
-        verticalLineTo(14f)
-        horizontalLineTo(15f)
-        verticalLineTo(20f)
-        horizontalLineTo(19f)
-        arcTo(1f, 1f, 0f, false, false, 20f, 19f)
-        verticalLineTo(10f)
-        lineTo(12f, 3f)
-        close()
-    }.build()
+    ).apply(build).build()
+
+
+@Composable
+fun rememberHomeIcon(): ImageVector = remember {
+    navIcon("Home") {
+
+        addPath(
+            pathData = addPathNodes("M12 3.3L21.3 11.4H19V20.6H14.9V16H9.1V20.6H5V11.4H2.7Z"),
+            fill = SolidColor(Color.Black),
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = 1.5f,
+            strokeLineJoin = StrokeJoin.Round
+        )
+    }
 }
 
 @Composable
 fun rememberScanIcon(): ImageVector = remember {
-    ImageVector.Builder(
-        name = "Scan",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).path(
-        stroke = SolidColor(Color.Black),
-        strokeLineWidth = 2f,
-        strokeLineCap = StrokeCap.Round,
-        strokeLineJoin = StrokeJoin.Round
-    ) {
-        // Corners
-        moveTo(3f, 8f)
-        verticalLineTo(5f)
-        arcTo(2f, 2f, 0f, false, true, 5f, 3f)
-        horizontalLineTo(8f)
-
-        moveTo(16f, 3f)
-        horizontalLineTo(19f)
-        arcTo(2f, 2f, 0f, false, true, 21f, 5f)
-        verticalLineTo(8f)
-
-        moveTo(21f, 16f)
-        verticalLineTo(19f)
-        arcTo(2f, 2f, 0f, false, true, 19f, 21f)
-        horizontalLineTo(16f)
-
-        moveTo(8f, 21f)
-        horizontalLineTo(5f)
-        arcTo(2f, 2f, 0f, false, true, 3f, 19f)
-        verticalLineTo(16f)
-    }.path(fill = SolidColor(Color.Black)) {
-        // 4 dots
-        moveTo(7f, 7f)
-        horizontalLineTo(10f)
-        verticalLineTo(10f)
-        horizontalLineTo(7f)
-        close()
-        
-        moveTo(14f, 7f)
-        horizontalLineTo(17f)
-        verticalLineTo(10f)
-        horizontalLineTo(14f)
-        close()
-        
-        moveTo(7f, 14f)
-        horizontalLineTo(10f)
-        verticalLineTo(17f)
-        horizontalLineTo(7f)
-        close()
-        
-        moveTo(14f, 14f)
-        horizontalLineTo(17f)
-        verticalLineTo(17f)
-        horizontalLineTo(14f)
-        close()
-    }.build()
+    navIcon("Scan") {
+        outline(
+            "M3.2 8.4V6.2a3 3 0 0 1 3-3h2.2 " +
+                    "M15.6 3.2h2.2a3 3 0 0 1 3 3v2.2 " +
+                    "M20.8 15.6v2.2a3 3 0 0 1-3 3h-2.2 " +
+                    "M8.4 20.8H6.2a3 3 0 0 1-3-3v-2.2",
+            width = 2.4f
+        )
+        solid(
+            roundRectPath(6.8f, 6.8f, 4.0f, 4.0f, 1.0f) +
+                    roundRectPath(13.2f, 6.8f, 4.0f, 4.0f, 1.0f) +
+                    roundRectPath(6.8f, 13.2f, 4.0f, 4.0f, 1.0f) +
+                    roundRectPath(13.2f, 13.2f, 2.0f, 2.0f, 0.5f) +
+                    roundRectPath(15.6f, 15.6f, 1.8f, 1.8f, 0.5f) +
+                    roundRectPath(15.6f, 13.2f, 1.6f, 1.6f, 0.4f)
+        )
+    }
 }
 
 @Composable
 fun rememberReferenceIcon(): ImageVector = remember {
-    ImageVector.Builder(
-        name = "Reference",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
-        moveTo(18f, 2f)
-        horizontalLineTo(6f)
-        arcTo(2f, 2f, 0f, false, false, 4f, 4f)
-        verticalLineTo(20f)
-        arcTo(2f, 2f, 0f, false, false, 6f, 22f)
-        horizontalLineTo(18f)
-        arcTo(2f, 2f, 0f, false, false, 20f, 20f)
-        verticalLineTo(4f)
-        arcTo(2f, 2f, 0f, false, false, 18f, 2f)
-        close()
-        
-        // Bookmark hole
-        moveTo(14f, 2f)
-        horizontalLineTo(8f)
-        verticalLineTo(10f)
-        lineTo(11f, 8.5f)
-        lineTo(14f, 10f)
-        verticalLineTo(2f)
-        close()
-    }.build()
+    navIcon("Reference") {
+        solid(
+            "M6.4 2.2H8.2V10.8L10.4 9L12.6 10.8V2.2H17.6" +
+                    "a2.2 2.2 0 0 1 2.2 2.2V19.6a2.2 2.2 0 0 1-2.2 2.2H6.4" +
+                    "a2.2 2.2 0 0 1-2.2-2.2V4.4a2.2 2.2 0 0 1 2.2-2.2Z"
+        )
+    }
 }
 
 @Composable
 fun rememberProfileIcon(): ImageVector = remember {
-    ImageVector.Builder(
-        name = "Profile",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).path(
-        stroke = SolidColor(Color.Black),
-        strokeLineWidth = 2f,
-        strokeLineCap = StrokeCap.Round
-    ) {
-        // Outer Circle
-        moveTo(12f, 21f)
-        arcTo(9f, 9f, 0f, true, true, 12f, 3f)
-        arcTo(9f, 9f, 0f, true, true, 12f, 21f)
-        close()
-        
-        // Head
-        moveTo(12f, 11f)
-        arcTo(3f, 3f, 0f, true, false, 12f, 5f)
-        arcTo(3f, 3f, 0f, false, false, 12f, 11f)
-        close()
-        
-        // Body
-        moveTo(7f, 18f)
-        arcTo(5f, 5f, 0f, false, true, 17f, 18f)
-    }.build()
+    navIcon("Profile") {
+        outline("M21.4 12a9.4 9.4 0 1 1-18.8 0a9.4 9.4 0 1 1 18.8 0z", width = 2.2f)
+        solid("M8.8 9.7a3.2 3.2 0 1 0 6.4 0a3.2 3.2 0 1 0-6.4 0z")
+        solid("M5.35 18.65C6.5 15.8 9 14.1 12 14.1C15 14.1 17.5 15.8 18.65 18.65A9.4 9.4 0 0 1 5.35 18.65Z")
+    }
 }
 
 data class BottomNavItem(val route: String, val label: String, val icon: @Composable () -> ImageVector)
@@ -229,7 +162,7 @@ fun FloatingBottomBar(
                 val selected = currentRoute == item.route
                 val icon = item.icon()
                 val tint = if (selected) p.active else p.inactive
-                
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier

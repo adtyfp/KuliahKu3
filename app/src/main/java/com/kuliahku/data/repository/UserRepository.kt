@@ -103,15 +103,26 @@ class UserRepository @Inject constructor(
         runCatching {
             android.util.Log.d("UserRepository", "Uploading avatar for $uid, size: ${bytes.size}")
             val path = Constants.STORAGE_PROFILE_PATH.format(uid)
+            val bucket = com.kuliahku.BuildConfig.R2_BUCKET_NAME
+            
             val metadata = ObjectMetadata().apply {
                 contentType = "image/jpeg"
                 contentLength = bytes.size.toLong()
             }
             
-            s3Client.putObject("kuliahku-storage", path, bytes.inputStream(), metadata)
+            // Menggunakan PutObjectRequest eksplisit untuk kontrol lebih baik
+            val request = com.amazonaws.services.s3.model.PutObjectRequest(
+                bucket, 
+                path, 
+                bytes.inputStream(), 
+                metadata
+            )
             
-            // Sesuaikan dengan URL publik R2 Anda
-            val url = "https://b07ec8aa7ea58d1d879db15183d19f70.r2.cloudflarestorage.com/kuliahku-storage/$path"
+            s3Client.putObject(request)
+            
+            // Menggunakan R2 Public Bucket URL dari BuildConfig
+            val publicUrl = com.kuliahku.BuildConfig.R2_PUBLIC_URL.removeSuffix("/")
+            val url = "$publicUrl/$path"
 
             firestore.collection(Constants.COLLECTION_USERS).document(uid)
                 .set(mapOf("photoUrl" to url, "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()),
@@ -120,6 +131,9 @@ class UserRepository @Inject constructor(
             url
         }.onFailure {
             android.util.Log.e("UserRepository", "Failed to upload avatar: ${it.message}", it)
+            if (it is com.amazonaws.services.s3.model.AmazonS3Exception) {
+                android.util.Log.e("UserRepository", "S3 Error: ${it.errorCode}, ${it.errorMessage}, ${it.statusCode}")
+            }
         }
     }
 

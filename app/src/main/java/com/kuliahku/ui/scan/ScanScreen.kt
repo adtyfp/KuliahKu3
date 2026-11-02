@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.kuliahku.notification.NotificationChannels
 import com.kuliahku.ui.components.AnimatedEntry
+import com.kuliahku.ui.components.KuliahkuContentDialog
 import com.kuliahku.ui.theme.*
 import com.kuliahku.util.DocumentExtractor
 import com.kuliahku.util.WebExtractor
@@ -226,32 +227,40 @@ fun ScanScreen(
 
     if (showSourceSheet) {
         ModalBottomSheet(onDismissRequest = { showSourceSheet = false }) {
-            Column(Modifier.padding(20.dp)) {
-                Text("Sumber Materi", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(12.dp))
-                ListItem(
-                    headlineContent = { Text("Pilih File") },
-                    supportingContent = { Text("PDF, DOCX, PPTX") },
-                    leadingContent = { Icon(Icons.Filled.UploadFile, null) },
-                    modifier = Modifier.clickable {
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+                Text(
+                    "Sumber Materi",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = p.textPrimary
+                )
+                Spacer(Modifier.height(16.dp))
+                ModernSelectionCard(
+                    title = "Pilih File",
+                    subtitle = "PDF, DOCX, PPTX",
+                    icon = Icons.Filled.UploadFile,
+                    p = p,
+                    onClick = {
                         showSourceSheet = false
                         filePicker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation"))
                     }
                 )
-                ListItem(
-                    headlineContent = { Text("Tempel Teks") },
-                    supportingContent = { Text("Salin teks dari sumber lain") },
-                    leadingContent = { Icon(Icons.Filled.ContentPaste, null) },
-                    modifier = Modifier.clickable {
+                ModernSelectionCard(
+                    title = "Tempel Teks",
+                    subtitle = "Salin teks dari sumber lain",
+                    icon = Icons.Filled.ContentPaste,
+                    p = p,
+                    onClick = {
                         showSourceSheet = false
                         showTextDialog = true
                     }
                 )
-                ListItem(
-                    headlineContent = { Text("Ambil Foto (OCR)") },
-                    supportingContent = { Text("Pindai teks dari buku/kertas") },
-                    leadingContent = { Icon(Icons.Filled.PhotoCamera, null) },
-                    modifier = Modifier.clickable {
+                ModernSelectionCard(
+                    title = "Ambil Foto (OCR)",
+                    subtitle = "Pindai teks dari buku/kertas",
+                    icon = Icons.Filled.PhotoCamera,
+                    p = p,
+                    onClick = {
                         showSourceSheet = false
                         scope.launch {
                             snackbar.showSnackbar("Fitur OCR segera hadir.")
@@ -297,29 +306,92 @@ fun ScanScreen(
 
     if (showAudioSheet) {
         ModalBottomSheet(onDismissRequest = { showAudioSheet = false }) {
-            Column(Modifier.padding(20.dp)) {
-                Text("Sumber Audio", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(12.dp))
-                ListItem(
-                    headlineContent = { Text("Rekam Sekarang") },
-                    supportingContent = { Text("Maksimal 15 menit") },
-                    leadingContent = { Icon(Icons.Filled.Mic, null) },
-                    modifier = Modifier.clickable {
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+                Text(
+                    "Sumber Audio",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = p.textPrimary
+                )
+                Spacer(Modifier.height(16.dp))
+                ModernSelectionCard(
+                    title = "Rekam Sekarang",
+                    subtitle = "Maksimal 15 menit",
+                    icon = Icons.Filled.Mic,
+                    p = p,
+                    onClick = {
                         showAudioSheet = false
                         navController.navigate("record_audio")
                     }
                 )
-                ListItem(
-                    headlineContent = { Text("Unggah File Audio") },
-                    supportingContent = { Text("MP3, M4A, WAV, maks 50 MB") },
-                    leadingContent = { Icon(Icons.Filled.AudioFile, null) },
-                    modifier = Modifier.clickable {
+                ModernSelectionCard(
+                    title = "Unggah File Audio",
+                    subtitle = "MP3, M4A, WAV, maks 50 MB",
+                    icon = Icons.Filled.AudioFile,
+                    p = p,
+                    onClick = {
                         showAudioSheet = false
                         audioPicker.launch(arrayOf("audio/*"))
                     }
                 )
                 Spacer(Modifier.height(24.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun ModernSelectionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    p: ScanPalette,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .height(84.dp)
+            .shadow(4.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.05f), spotColor = Color.Black.copy(alpha = 0.05f))
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = p.surface,
+        border = BorderStroke(1.dp, p.border.copy(alpha = 0.6f))
+    ) {
+        Row(
+            Modifier.padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .background(p.upload.container.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = p.upload.icon, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = p.textPrimary
+                )
+                Text(
+                    subtitle,
+                    fontSize = 13.sp,
+                    color = p.cardSubtitle
+                )
+            }
+            Icon(
+                Icons.Filled.ChevronRight,
+                null,
+                tint = p.arrow,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -422,29 +494,55 @@ private fun TextPasteDialog(
 ) {
     var title by remember { mutableStateOf("") }
     var text by remember { mutableStateOf("") }
-    AlertDialog(
+    KuliahkuContentDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tempel Materi") },
-        text = {
-            Column {
-                OutlinedTextField(value = title, onValueChange = { title = it }, placeholder = { Text("Judul materi (opsional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = text, onValueChange = { text = it }, placeholder = { Text("Tempelkan teks materi...") }, modifier = Modifier.fillMaxWidth().height(200.dp))
-            }
-        },
-        confirmButton = { TextButton(onClick = { if (text.isNotBlank()) onSubmit(title, text) }, enabled = text.isNotBlank()) { Text("Proses") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
-    )
+        title = "Tempel Materi",
+        icon = Icons.Default.ContentPaste,
+        confirmText = "Proses",
+        onConfirm = { if (text.isNotBlank()) onSubmit(title, text) },
+        dismissText = "Batal"
+    ) {
+        Column {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                placeholder = { Text("Judul materi (opsional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Tempelkan teks materi...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+    }
 }
 
 @Composable
 private fun UrlInputDialog(title: String, placeholder: String, onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
     var url by remember { mutableStateOf("") }
-    AlertDialog(
+    KuliahkuContentDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { OutlinedTextField(value = url, onValueChange = { url = it }, placeholder = { Text(placeholder) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
-        confirmButton = { TextButton(onClick = { if (url.isNotBlank()) onSubmit(url.trim()) }, enabled = url.isNotBlank()) { Text("Proses") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
-    )
+        title = title,
+        icon = Icons.Default.Link,
+        confirmText = "Proses",
+        onConfirm = { if (url.isNotBlank()) onSubmit(url.trim()) },
+        dismissText = "Batal"
+    ) {
+        OutlinedTextField(
+            value = url,
+            onValueChange = { url = it },
+            placeholder = { Text(placeholder) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
 }

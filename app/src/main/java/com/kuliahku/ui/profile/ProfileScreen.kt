@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Hearing
@@ -43,6 +44,7 @@ import androidx.navigation.NavHostController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.kuliahku.ui.components.AnimatedEntry
+import com.kuliahku.ui.components.KuliahkuDialog
 import com.kuliahku.ui.navigation.Routes
 
 // ---------------------------------------------------------------------------
@@ -277,15 +279,17 @@ fun ProfileScreen(
     }
 
     if (state.showLogoutDialog) {
-        AlertDialog(
+        KuliahkuDialog(
             onDismissRequest = { viewModel.showLogoutDialog(false) },
-            title = { Text("Logout") },
-            text = { Text("Yakin ingin keluar dari akun ini?") },
-            confirmButton = {
-                TextButton(onClick = { viewModel.showLogoutDialog(false); viewModel.logout() }) { Text("Logout") }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.showLogoutDialog(false) }) { Text("Batal") }
+            title = "Keluar Akun",
+            text = "Yakin ingin keluar dari akun ini? Anda harus masuk kembali untuk mengakses data Anda.",
+            icon = Icons.AutoMirrored.Filled.ExitToApp,
+            iconColor = MaterialTheme.colorScheme.error,
+            confirmText = "Logout",
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = {
+                viewModel.showLogoutDialog(false)
+                viewModel.logout()
             }
         )
     }

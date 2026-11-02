@@ -1,5 +1,14 @@
 package com.kuliahku.ui.tasks
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -13,6 +22,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +45,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.kuliahku.R
 import com.kuliahku.data.model.TaskPriority
+import com.kuliahku.ui.components.KuliahkuContentDialog
+import com.kuliahku.ui.components.WheelDateTimePicker
 import com.kuliahku.ui.theme.BadgeHighBg
 import com.kuliahku.ui.theme.BadgeLowBg
 import com.kuliahku.ui.theme.BadgeMediumBg
@@ -84,9 +99,8 @@ fun AddEditTaskScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var pendingDate by remember { mutableStateOf<java.util.Calendar?>(null) }
+    var expandedDeadline by remember { mutableStateOf(false) }
+    var expandedPriority by remember { mutableStateOf(false) }
     val p = formPalette()
 
     LaunchedEffect(Unit) {
@@ -167,27 +181,148 @@ fun AddEditTaskScreen(
                 FieldError(state.titleError)
                 Spacer(Modifier.height(15.dp))
 
-                // ── Deadline: pill 51 dp, membuka date/time picker ──
-                Box(
+                // ── Deadline: pill 51 dp, membuka inline wheel picker ──
+                val deadlineCorner by animateDpAsState(
+                    targetValue = if (expandedDeadline) 25.dp else 26.dp,
+                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                    label = "deadlineCorner"
+                )
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(51.dp)
-                        .formSurface(p, CircleShape)
-                        .clickable { showDatePicker = true }
-                        .padding(horizontal = 26.dp),
-                    contentAlignment = Alignment.CenterStart
+                        .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
+                        .formSurface(p, RoundedCornerShape(deadlineCorner))
                 ) {
-                    val hasDeadline = state.deadlineLabel.isNotBlank()
-                    Text(
-                        if (hasDeadline) state.deadlineLabel else "Deadline Tugas",
-                        fontSize = 15.sp,
-                        lineHeight = 22.sp,
-                        fontWeight = if (hasDeadline) FontWeight.Medium else FontWeight.SemiBold,
-                        color = if (hasDeadline) p.textPrimary else p.placeholder,
-                        maxLines = 1
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(51.dp)
+                            .clickable {
+                                expandedDeadline = !expandedDeadline
+                                if (expandedDeadline) expandedPriority = false
+                            }
+                            .padding(horizontal = 26.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val hasDeadline = state.deadlineLabel.isNotBlank()
+                        Text(
+                            if (hasDeadline) state.deadlineLabel else "Deadline Tugas",
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
+                            fontWeight = if (hasDeadline) FontWeight.Medium else FontWeight.SemiBold,
+                            color = if (hasDeadline) p.textPrimary else p.placeholder,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            if (expandedDeadline) Icons.Filled.ExpandLess else Icons.Filled.UnfoldMore,
+                            contentDescription = null,
+                            tint = p.placeholder,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = expandedDeadline,
+                        enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(250)),
+                        exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                    ) {
+                        Box(Modifier.padding(bottom = 12.dp)) {
+                            WheelDateTimePicker(
+                                initialMillis = state.deadlineMillis ?: System.currentTimeMillis(),
+                                onDateTimeChanged = viewModel::onDeadlineChange,
+                                textPrimary = p.textPrimary,
+                                textSecondary = p.placeholder
+                            )
+                        }
+                    }
                 }
                 FieldError(state.deadlineError)
+                Spacer(Modifier.height(15.dp))
+
+                // ── Prioritas: pill 51 dp, Dropdown ──
+                val priorityCorner by animateDpAsState(
+                    targetValue = if (expandedPriority) 25.dp else 26.dp,
+                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                    label = "priorityCorner"
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
+                        .formSurface(p, RoundedCornerShape(priorityCorner))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(51.dp)
+                            .clickable {
+                                expandedPriority = !expandedPriority
+                                if (expandedPriority) expandedDeadline = false
+                            }
+                            .padding(horizontal = 26.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Prioritas",
+                                fontSize = 12.sp,
+                                color = p.placeholder,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                when (state.priority) {
+                                    TaskPriority.LOW -> "Rendah"
+                                    TaskPriority.MEDIUM -> "Sedang"
+                                    TaskPriority.HIGH -> "Tinggi"
+                                },
+                                fontSize = 15.sp,
+                                color = p.textPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Icon(
+                            if (expandedPriority) Icons.Filled.ExpandLess else Icons.Filled.UnfoldMore,
+                            contentDescription = null,
+                            tint = p.placeholder,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = expandedPriority,
+                        enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(250)),
+                        exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                        ) {
+                            listOf(
+                                "Rendah" to TaskPriority.LOW,
+                                "Sedang" to TaskPriority.MEDIUM,
+                                "Tinggi" to TaskPriority.HIGH
+                            ).forEach { (lbl, pr) ->
+                                val isSelected = state.priority == pr
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.onPriorityChange(pr)
+                                            expandedPriority = false
+                                        }
+                                        .padding(horizontal = 26.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        lbl,
+                                        fontSize = 15.sp,
+                                        color = if (isSelected) p.button else p.textPrimary,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(15.dp))
 
                 // ── Deskripsi: kotak 149 dp, radius 30 ──
@@ -223,45 +358,6 @@ fun AddEditTaskScreen(
                 )
             }
         }
-    }
-
-    if (showDatePicker) {
-        val dpState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    dpState.selectedDateMillis?.let { ms ->
-                        val cal = java.util.Calendar.getInstance()
-                        cal.timeInMillis = ms
-                        pendingDate = cal
-                        showDatePicker = false
-                        showTimePicker = true
-                    }
-                }) { Text("Lanjut") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Batal") } }
-        ) { DatePicker(state = dpState) }
-    }
-
-    if (showTimePicker) {
-        val tpState = rememberTimePickerState()
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text("Pilih Waktu") },
-            text = { TimePicker(state = tpState) },
-            confirmButton = {
-                TextButton(onClick = {
-                    val cal = pendingDate ?: java.util.Calendar.getInstance()
-                    cal.set(java.util.Calendar.HOUR_OF_DAY, tpState.hour)
-                    cal.set(java.util.Calendar.MINUTE, tpState.minute)
-                    cal.set(java.util.Calendar.SECOND, 0)
-                    viewModel.onDeadlineChange(cal.timeInMillis)
-                    showTimePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Batal") } }
-        )
     }
 }
 

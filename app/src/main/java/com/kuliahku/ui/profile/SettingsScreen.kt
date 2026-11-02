@@ -3,6 +3,7 @@ package com.kuliahku.ui.profile
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -10,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kuliahku.ui.components.KuliahkuContentDialog
 import com.kuliahku.ui.components.PillTextField
 import com.kuliahku.ui.components.PrimaryPillButton
 
@@ -54,20 +56,20 @@ fun SettingsScreen(
     }
 
     if (state.showDeleteDialog) {
-        AlertDialog(
+        KuliahkuContentDialog(
             onDismissRequest = { viewModel.showDeleteDialog(false) },
-            title = { Text("Hapus Akun?") },
-            text = {
-                Column {
-                    Text("Semua data (tugas, catatan, keuangan, dll) akan dihapus permanen. Masukkan password untuk konfirmasi.")
-                    Spacer(Modifier.height(12.dp))
-                    PillTextField(state.deletePassword, viewModel::onDeletePasswordChange, "Password", isPassword = true)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::deleteAccount) { Text("Hapus", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { viewModel.showDeleteDialog(false) }) { Text("Batal") } }
-        )
+            title = "Hapus Akun?",
+            icon = Icons.Default.Warning,
+            iconColor = MaterialTheme.colorScheme.error,
+            confirmText = "Hapus",
+            onConfirm = viewModel::deleteAccount,
+            dismissText = "Batal"
+        ) {
+            Column {
+                Text("Semua data (tugas, catatan, keuangan, dll) akan dihapus permanen. Masukkan password untuk konfirmasi.")
+                Spacer(Modifier.height(12.dp))
+                PillTextField(state.deletePassword, viewModel::onDeletePasswordChange, "Password", isPassword = true)
+            }
+        }
     }
 }

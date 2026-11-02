@@ -1,15 +1,31 @@
 package com.kuliahku.ui.finance
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +54,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.kuliahku.R
 import com.kuliahku.data.model.TxType
+import com.kuliahku.ui.components.KuliahkuContentDialog
+import com.kuliahku.ui.components.WheelDateTimePicker
 import java.util.Calendar
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,9 +121,8 @@ fun AddTransactionScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var pendingCal by remember { mutableStateOf<Calendar?>(null) }
+    var expandedDate by remember { mutableStateOf(false) }
+    var expandedCategory by remember { mutableStateOf(false) }
     val p = addPalette()
 
     LaunchedEffect(Unit) {
@@ -195,30 +212,75 @@ fun AddTransactionScreen(
                 Spacer(Modifier.height(17.dp))
 
                 // ---------------- Kategori ----------------
-                var expanded by remember { mutableStateOf(false) }
-                var fieldWidth by remember { mutableStateOf(0.dp) }
-                val density = LocalDensity.current
-                Box(Modifier.fillMaxWidth().onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }) {
-                    PillPicker(
-                        text = state.category,
-                        placeholder = "Kategori",
-                        palette = p,
-                        hasError = state.categoryError != null,
-                        trailing = {
-                            Icon(ChevronDownIcon, null, tint = p.chevron, modifier = Modifier.size(24.dp))
-                        },
-                        onClick = { expanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        modifier = Modifier.width(fieldWidth)
+                val categoryCorner by animateDpAsState(
+                    targetValue = if (expandedCategory) 25.dp else 26.dp,
+                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                    label = "categoryCorner"
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
+                        .shadow(6.dp, RoundedCornerShape(categoryCorner), ambientColor = Color.Black.copy(alpha = p.shadowAlpha), spotColor = Color.Black.copy(alpha = p.shadowAlpha))
+                        .background(p.surface, RoundedCornerShape(categoryCorner))
+                        .border(1.dp, if (state.categoryError != null) p.error else p.border, RoundedCornerShape(categoryCorner))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(49.dp)
+                            .clickable {
+                                expandedCategory = !expandedCategory
+                                if (expandedCategory) expandedDate = false
+                            }
+                            .padding(start = 26.dp, end = 27.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        state.categories.forEach { c ->
-                            DropdownMenuItem(
-                                text = { Text(c) },
-                                onClick = { viewModel.onCategoryChange(c); expanded = false }
-                            )
+                        Text(
+                            state.category.ifBlank { "Kategori" },
+                            modifier = Modifier.weight(1f),
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (state.category.isBlank()) p.placeholder else p.textPrimary,
+                            maxLines = 1
+                        )
+                        Icon(
+                            if (expandedCategory) Icons.Filled.ExpandLess else Icons.Filled.UnfoldMore,
+                            contentDescription = null,
+                            tint = p.chevron,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = expandedCategory,
+                        enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(250)),
+                        exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                        ) {
+                            state.categories.forEach { c ->
+                                val isSelected = state.category == c
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.onCategoryChange(c)
+                                            expandedCategory = false
+                                        }
+                                        .padding(horizontal = 26.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        c,
+                                        fontSize = 15.sp,
+                                        color = if (isSelected) p.accent else p.textPrimary,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -227,12 +289,61 @@ fun AddTransactionScreen(
                 Spacer(Modifier.height(17.dp))
 
                 // ---------------- Tanggal ----------------
-                PillPicker(
-                    text = state.dateLabel,
-                    placeholder = "Tanggal",
-                    palette = p,
-                    onClick = { showDatePicker = true }
+                val dateCorner by animateDpAsState(
+                    targetValue = if (expandedDate) 25.dp else 26.dp,
+                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                    label = "dateCorner"
                 )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
+                        .shadow(6.dp, RoundedCornerShape(dateCorner), ambientColor = Color.Black.copy(alpha = p.shadowAlpha), spotColor = Color.Black.copy(alpha = p.shadowAlpha))
+                        .background(p.surface, RoundedCornerShape(dateCorner))
+                        .border(1.dp, p.border, RoundedCornerShape(dateCorner))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(49.dp)
+                            .clickable {
+                                expandedDate = !expandedDate
+                                if (expandedDate) expandedCategory = false
+                            }
+                            .padding(start = 26.dp, end = 27.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            state.dateLabel.ifBlank { "Tanggal" },
+                            modifier = Modifier.weight(1f),
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (state.dateLabel.isBlank()) p.placeholder else p.textPrimary,
+                            maxLines = 1
+                        )
+                        Icon(
+                            if (expandedDate) Icons.Filled.ExpandLess else Icons.Filled.UnfoldMore,
+                            contentDescription = null,
+                            tint = p.chevron,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = expandedDate,
+                        enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(250)),
+                        exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+                    ) {
+                        Box(Modifier.padding(bottom = 12.dp)) {
+                            WheelDateTimePicker(
+                                initialMillis = state.dateMillis,
+                                onDateTimeChanged = viewModel::onDateChange,
+                                textPrimary = p.textPrimary,
+                                textSecondary = p.placeholder
+                            )
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(17.dp))
 
@@ -268,44 +379,6 @@ fun AddTransactionScreen(
                 )
             }
         }
-    }
-
-    if (showDatePicker) {
-        val dpState = rememberDatePickerState(initialSelectedDateMillis = state.dateMillis)
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    dpState.selectedDateMillis?.let {
-                        val c = Calendar.getInstance().apply { timeInMillis = it }
-                        pendingCal = c
-                        showDatePicker = false
-                        showTimePicker = true
-                    }
-                }) { Text("Lanjut") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Batal") } }
-        ) { DatePicker(state = dpState) }
-    }
-
-    if (showTimePicker) {
-        val tpState = rememberTimePickerState()
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text("Pilih Waktu") },
-            text = { TimePicker(state = tpState) },
-            confirmButton = {
-                TextButton(onClick = {
-                    val c = pendingCal ?: Calendar.getInstance()
-                    c.set(Calendar.HOUR_OF_DAY, tpState.hour)
-                    c.set(Calendar.MINUTE, tpState.minute)
-                    c.set(Calendar.SECOND, 0)
-                    viewModel.onDateChange(c.timeInMillis)
-                    showTimePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Batal") } }
-        )
     }
 }
 @Composable

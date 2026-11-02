@@ -6,9 +6,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.rememberNavController
@@ -18,6 +18,7 @@ import com.kuliahku.data.repository.EventRepository
 import com.kuliahku.data.repository.TaskRepository
 import com.kuliahku.notification.NotificationChannels
 import com.kuliahku.notification.ReminderScheduler
+import com.kuliahku.ui.components.KuliahkuDialog
 import com.kuliahku.ui.navigation.AppNavHost
 import com.kuliahku.ui.navigation.Routes
 import com.kuliahku.ui.theme.KuliahkuTheme
@@ -93,19 +94,17 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (showNotifAccessDialog) {
-                    AlertDialog(
+                    KuliahkuDialog(
                         onDismissRequest = { showNotifAccessDialog = false },
-                        title = { Text("Aktifkan Catat Otomatis?") },
-                        text = { Text("KuliahKu butuh izin 'Akses Notifikasi' untuk mencatat transaksi bank secara otomatis. Aktifkan sekarang?") },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                showNotifAccessDialog = false
-                                com.kuliahku.notification.listener.FinanceNotificationListener.openSettings(context)
-                            }) { Text("Buka Pengaturan") }
+                        title = "Aktifkan Catat Otomatis?",
+                        text = "KuliahKu butuh izin 'Akses Notifikasi' untuk mencatat transaksi bank secara otomatis sehingga pengeluaran Anda terpantau lebih mudah. Aktifkan sekarang?",
+                        icon = Icons.Outlined.NotificationsActive,
+                        confirmText = "Buka Pengaturan",
+                        onConfirm = {
+                            showNotifAccessDialog = false
+                            com.kuliahku.notification.listener.FinanceNotificationListener.openSettings(context)
                         },
-                        dismissButton = {
-                            TextButton(onClick = { showNotifAccessDialog = false }) { Text("Nanti Saja") }
-                        }
+                        dismissText = "Nanti Saja"
                     )
                 }
 

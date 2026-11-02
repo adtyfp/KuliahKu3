@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.*
@@ -43,6 +45,7 @@ import com.kuliahku.data.model.Transaction
 import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.EmptyView
 import com.kuliahku.ui.components.ErrorView
+import com.kuliahku.ui.components.KuliahkuDialog
 import com.kuliahku.ui.components.ShimmerBox
 import com.kuliahku.ui.navigation.Routes
 import com.kuliahku.ui.theme.*
@@ -405,12 +408,16 @@ fun FinanceScreen(
     }
 
     if (state.pendingDelete != null) {
-        AlertDialog(
+        KuliahkuDialog(
             onDismissRequest = viewModel::cancelDelete,
-            title = { Text("Hapus Transaksi?") },
-            text = { Text("Transaksi akan dihapus permanen.") },
-            confirmButton = { TextButton(onClick = viewModel::confirmDelete) { Text("Hapus") } },
-            dismissButton = { TextButton(onClick = viewModel::cancelDelete) { Text("Batal") } }
+            title = "Hapus Transaksi?",
+            text = "Transaksi akan dihapus permanen.",
+            icon = Icons.Default.Delete,
+            iconColor = MaterialTheme.colorScheme.error,
+            confirmText = "Hapus",
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = viewModel::confirmDelete,
+            dismissText = "Batal"
         )
     }
 }

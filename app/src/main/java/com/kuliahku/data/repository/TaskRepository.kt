@@ -261,11 +261,12 @@ class TaskRepository @Inject constructor(
                 contentLength = bytes.size.toLong()
             }
 
-            s3Client.putObject("kuliahku-storage", path, bytes.inputStream(), metadata)
+            val bucket = com.kuliahku.BuildConfig.R2_BUCKET_NAME
+            s3Client.putObject(bucket, path, bytes.inputStream(), metadata)
             
-            // Mengembalikan path. Untuk URL publik, biasanya: 
-            // "https://pub-<id>.r2.dev/$path" atau custom domain Anda.
-            path to type
+            // Return URL publik untuk Task
+            val publicUrl = com.kuliahku.BuildConfig.R2_PUBLIC_URL.removeSuffix("/")
+            "$publicUrl/$path" to type
         }
     }
 

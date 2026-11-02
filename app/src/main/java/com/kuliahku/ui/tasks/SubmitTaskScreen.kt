@@ -15,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.kuliahku.data.model.TaskStatus
 import com.kuliahku.ui.components.PrimaryPillButton
 import com.kuliahku.util.DateFormatters
 
@@ -38,7 +40,6 @@ fun SubmitTaskScreen(
         viewModel.events.collect { event ->
             when (event) {
                 SubmitTaskEvent.Submitted -> {
-                    snackbar.showSnackbar("Tugas berhasil dikumpulkan.")
                     navController.popBackStack()
                 }
                 is SubmitTaskEvent.ShowMessage -> snackbar.showSnackbar(event.message)
@@ -136,12 +137,29 @@ fun SubmitTaskScreen(
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
 
-            Spacer(Modifier.height(24.dp))
-            PrimaryPillButton(
-                text = if (state.isUploading) "Mengunggah..." else if (state.pickedUri == null) "Tandai Selesai" else "Submit",
-                onClick = viewModel::submit,
-                enabled = !state.isUploading
-            )
+            if (state.task?.statusEnum != TaskStatus.DONE) {
+                Spacer(Modifier.height(24.dp))
+                PrimaryPillButton(
+                    text = if (state.isUploading) "Mengunggah..." else if (state.pickedUri == null) "Tandai Selesai" else "Submit",
+                    onClick = viewModel::submit,
+                    enabled = !state.isUploading
+                )
+            } else {
+                Spacer(Modifier.height(24.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Tugas ini telah selesai dikumpulkan.",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }

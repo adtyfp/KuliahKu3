@@ -169,20 +169,47 @@ fun NotesScreen(
         }
 
         if (state.showFilterMenu) {
-            ModalBottomSheet(onDismissRequest = { viewModel.showFilterMenu(false) }) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("Filter", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(8.dp))
-                    NoteFilter.entries.forEach { f ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { viewModel.setFilter(f); viewModel.showFilterMenu(false) }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = state.filter == f, onClick = { viewModel.setFilter(f); viewModel.showFilterMenu(false) })
-                            Text(f.label)
+            ModalBottomSheet(
+                onDismissRequest = { viewModel.showFilterMenu(false) },
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
+            ) {
+                Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+                    Text(
+                        "Urutkan & Filter",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    
+                    NoteFilter.entries.chunked(2).forEach { pair ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            pair.forEach { f ->
+                                val isSelected = state.filter == f
+                                Surface(
+                                    onClick = { 
+                                        viewModel.setFilter(f)
+                                        viewModel.showFilterMenu(false)
+                                    },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier.weight(1f).height(50.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            f.label,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
                         }
+                        Spacer(Modifier.height(10.dp))
                     }
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }
