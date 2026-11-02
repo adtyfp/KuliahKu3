@@ -19,7 +19,8 @@ data class User(
 data class UserSettings(
     val themeMode: String = "system", // light | dark | system
     val reminderEnabled: Boolean = true,
-    val financeListenerEnabled: Boolean = false
+    val financeListenerEnabled: Boolean = false,
+    val dailyLimit: Long = 0L
 )
 
 data class NimIndex(

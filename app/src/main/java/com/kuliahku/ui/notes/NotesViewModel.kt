@@ -25,7 +25,8 @@ data class NotesUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val showFilterMenu: Boolean = false,
-    val pendingDelete: Note? = null
+    val pendingDelete: Note? = null,
+    val selectedNoteIds: Set<String> = emptySet()
 )
 
 sealed interface NotesEvent {
@@ -63,13 +64,51 @@ class NotesViewModel @Inject constructor(
     fun showFilterMenu(b: Boolean) { _uiState.update { it.copy(showFilterMenu = b) } }
     fun requestDelete(note: Note) { _uiState.update { it.copy(pendingDelete = note) } }
 
-    fun confirmDelete() {
-        val note = _uiState.value.pendingDelete ?: return
+    fun toggleSelection(noteId: String) {
+        _uiState.update {
+            val current = it.selectedNoteIds
+            val next = if (current.contains(noteId)) current - noteId else current + noteId
+            it.copy(selectedNoteIds = next)
+        }
+    }
+
+    fun clearSelection() {
+        _uiState.update { it.copy(selectedNoteIds = emptySet()) }
+    }
+
+    private var lastDeletedNotes: List<Note> = emptyList()
+
+    fun deleteSelected() {
+        val selectedIds = _uiState.value.selectedNoteIds
+        if (selectedIds.isEmpty()) return
+        
+        val notesToDelete = _uiState.value.notes.filter { it.id in selectedIds }
+        lastDeletedNotes = notesToDelete
+        
         viewModelScope.launch {
-            repo.delete(note.id)
-                .onSuccess { _events.send(NotesEvent.ShowMessage("Catatan dihapus.")) }
-                .onFailure { _events.send(NotesEvent.ShowMessage(it.message ?: "Gagal menghapus.")) }
-            _uiState.update { it.copy(pendingDelete = null) }
+            var success = true
+            selectedIds.forEach { id ->
+                repo.delete(id).onFailure { success = false }
+            }
+            
+            if (success) {
+                val count = selectedIds.size
+                _events.send(NotesEvent.ShowMessage("$count Catatan dihapus."))
+            } else {
+                _events.send(NotesEvent.ShowMessage("Beberapa catatan gagal dihapus."))
+            }
+            clearSelection()
+        }
+    }
+
+    fun undoDelete() {
+        if (lastDeletedNotes.isEmpty()) return
+        viewModelScope.launch {
+            lastDeletedNotes.forEach { note ->
+                repo.upsert(note)
+            }
+            lastDeletedNotes = emptyList()
+            _events.send(NotesEvent.ShowMessage("Catatan dipulihkan."))
         }
     }
 

@@ -13,7 +13,6 @@ googleGmsGoogleServices = "4.4.2"
 firebaseDatabase = "21.0.0"
 firebaseFirestore = "25.1.1"
 firebaseAppCheck = "20.0.0"
-firebaseAi = "18.0.0"
 firebaseAuth = "23.1.0"
 hilt = "2.52"
 hiltExt = "1.2.0"
@@ -41,7 +40,6 @@ robolectric = "4.13"
 vico = "2.0.0-alpha.28"
 ktor-version = "2.3.12"
 retrofitKotlinxSerialization = "1.0.0"
-firebaseVertexAi = "16.5.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -65,8 +63,6 @@ firebase-database = { group = "com.google.firebase", name = "firebase-database",
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity", version.ref = "firebaseAppCheck" }
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug", version.ref = "firebaseAppCheck" }
-firebase-ai = { group = "com.google.firebase", name = "firebase-ai", version.ref = "firebaseAi" }
-firebase-vertexai = { group = "com.google.firebase", name = "firebase-vertexai", version.ref = "firebaseVertexAi" }
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor-version" }
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor-version" }
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor-version" }

@@ -146,7 +146,7 @@ fun FloatingBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        shape = RoundedCornerShape(50),
+        shape = RoundedCornerShape(30),
         shadowElevation = 8.dp,
         color = p.surface,
         border = p.border?.let { BorderStroke(1.dp, it) }

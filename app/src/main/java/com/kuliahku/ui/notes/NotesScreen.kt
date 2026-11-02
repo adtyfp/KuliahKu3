@@ -10,13 +10,25 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,7 +51,16 @@ fun NotesScreen(
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                is NotesEvent.ShowMessage -> snackbar.showSnackbar(event.message)
+                is NotesEvent.ShowMessage -> {
+                    val result = snackbar.showSnackbar(
+                        message = event.message,
+                        actionLabel = if (event.message.contains("dihapus")) "Urungkan" else null,
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.undoDelete()
+                    }
+                }
             }
         }
     }
@@ -52,41 +73,69 @@ fun NotesScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 0.dp)
         ) {
             // ── Header (sesuai Catatan.png): chevron di x=33..45, judul "Catatan" di x=61,
             //    keduanya berpusat di y=75. Tombol 36 dp mulai x=22 (= 16 padding + 6). ──
             AnimatedEntry(delay = 0) {
                 Row(
-                    Modifier.fillMaxWidth().padding(start = 6.dp, top = 16.dp),
+                    Modifier.fillMaxWidth().padding(start = 18.dp, top = 16.dp, end = 18.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { navController.popBackStack() },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.ArrowBackIosNew,
-                            contentDescription = "Kembali",
-                            modifier = Modifier.size(24.dp)
+                    if (state.selectedNoteIds.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.clearSelection() },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Batal Pilih",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "${state.selectedNoteIds.size} dipilih",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                        Spacer(Modifier.weight(1f))
+                        IconButton(
+                            onClick = { viewModel.deleteSelected() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Hapus", tint = MaterialTheme.colorScheme.error)
+                        }
+                    } else {
+                        IconButton(
+                            onClick = { navController.popBackStack() },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.ArrowBackIosNew,
+                                contentDescription = "Kembali",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Catatan",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontSize = 24.sp,
+                                lineHeight = 32.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                     }
-                    Spacer(Modifier.width(2.dp))
-                    Text(
-                        "Catatan",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontSize = 26.sp,
-                            lineHeight = 36.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
                 }
             }
             Spacer(Modifier.height(4.dp))
 
             AnimatedEntry(delay = 100) {
                 Row(
-                    Modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -96,14 +145,25 @@ fun NotesScreen(
                         modifier = Modifier.clickable { viewModel.showFilterMenu(true) }
                     )
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = viewModel::toggleLayout) {
+                    IconButton(
+                        onClick = viewModel::toggleLayout,
+                        modifier = Modifier.size(48.dp)
+                    ) {
                         Icon(
                             if (state.layout == NoteLayout.GRID) Icons.Filled.ViewList else Icons.Filled.GridView,
-                            contentDescription = "Ubah tata letak"
+                            contentDescription = "Ubah tata letak",
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    IconButton(onClick = { viewModel.showFilterMenu(true) }) {
-                        Icon(Icons.Filled.FilterList, contentDescription = "Filter")
+                    IconButton(
+                        onClick = { viewModel.showFilterMenu(true) },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.FilterList,
+                            contentDescription = "Filter",
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
@@ -130,22 +190,46 @@ fun NotesScreen(
                                 LazyVerticalGrid(
                                     columns = GridCells.Fixed(2),
                                     modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(bottom = 100.dp)
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 100.dp)
                                 ) {
                                     items(state.filtered, key = { it.id }) { note ->
-                                        NoteCard(note) { navController.navigate("note_edit/${note.id}") }
+                                        val isSelected = state.selectedNoteIds.contains(note.id)
+                                        NoteCard(
+                                            note = note,
+                                            isSelected = isSelected,
+                                            onLongClick = { viewModel.toggleSelection(note.id) },
+                                            onClick = {
+                                                if (state.selectedNoteIds.isNotEmpty()) {
+                                                    viewModel.toggleSelection(note.id)
+                                                } else {
+                                                    navController.navigate("note_edit/${note.id}")
+                                                }
+                                            }
+                                        )
                                     }
                                 }
                             } else {
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(bottom = 100.dp)
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 100.dp)
                                 ) {
                                     items(state.filtered, key = { it.id }) { note ->
-                                        NoteRow(note) { navController.navigate("note_edit/${note.id}") }
+                                        val isSelected = state.selectedNoteIds.contains(note.id)
+                                        NoteRow(
+                                            note = note,
+                                            isSelected = isSelected,
+                                            onLongClick = { viewModel.toggleSelection(note.id) },
+                                            onClick = {
+                                                if (state.selectedNoteIds.isNotEmpty()) {
+                                                    viewModel.toggleSelection(note.id)
+                                                } else {
+                                                    navController.navigate("note_edit/${note.id}")
+                                                }
+                                            }
+                                        )
                                     }
                                 }
                             }
@@ -156,7 +240,7 @@ fun NotesScreen(
 
             if (!state.isLoading && state.error == null) {
                 AnimatedEntry(delay = 300) {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
                         SearchBarWithFab(
                             searchQuery = state.searchQuery,
                             onSearchQueryChange = viewModel::onSearch,
@@ -216,72 +300,162 @@ fun NotesScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun NoteCard(note: Note, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        shadowElevation = 6.dp, // Ditingkatkan dari 2.dp agar lebih hidup
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+private fun NoteCard(
+    note: Note,
+    isSelected: Boolean = false,
+    onLongClick: () -> Unit = {},
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(20.dp)
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "cardScale"
+    )
+    val elevation by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 2.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy),
+        label = "cardElevation"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp) // Mengurangi padding agar margin total (content + card) menjadi 8dp
+            .zIndex(if (isSelected) 1f else 0f),
+        contentAlignment = Alignment.TopEnd
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                note.title.ifBlank { "(Tanpa judul)" },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                note.content,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                lineHeight = 18.sp
-            )
+        Surface(
+            shape = shape,
+            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                if (isSelected) 2.dp else 1.dp,
+                if (isSelected) MaterialTheme.colorScheme.primary 
+                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            ),
+            shadowElevation = elevation,
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    transformOrigin = TransformOrigin.Center
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .clip(shape) // Memastikan ripple/hover mengikuti lengkungan 20.dp
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick
+                    )
+                    .padding(16.dp)
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                            RoundedCornerShape(50)
+                        )
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    note.title.ifBlank { "(Tanpa judul)" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    note.content,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 5,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    lineHeight = 18.sp
+                )
+            }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun NoteRow(note: Note, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+private fun NoteRow(
+    note: Note,
+    isSelected: Boolean = false,
+    onLongClick: () -> Unit = {},
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(20.dp)
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.03f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "rowScale"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .zIndex(if (isSelected) 1f else 0f),
+        contentAlignment = Alignment.CenterEnd
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(4.dp, 40.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    note.title.ifBlank { "(Tanpa judul)" },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+        Surface(
+            shape = shape,
+            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                if (isSelected) 2.dp else 1.dp,
+                if (isSelected) MaterialTheme.colorScheme.primary 
+                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            ),
+            shadowElevation = if (isSelected) 6.dp else 2.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    transformOrigin = TransformOrigin.Center
+                }
+        ) {
+            Row(
+                modifier = Modifier
+                    .clip(shape)
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick
+                    )
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .size(4.dp, 36.dp)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                            RoundedCornerShape(50)
+                        )
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    note.content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        note.title.ifBlank { "(Tanpa judul)" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        note.content,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
     }

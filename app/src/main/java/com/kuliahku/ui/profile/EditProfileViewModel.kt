@@ -108,15 +108,24 @@ class EditProfileViewModel @Inject constructor(
                 // Upload avatar if changed
                 state.avatarPreview?.let { uri ->
                     android.util.Log.d("EditProfileVM", "New avatar detected, uploading: $uri")
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                    val bytes = inputStream?.readBytes() ?: throw Exception("Gagal membaca file")
-                    inputStream.close()
+                    
+                    val bytes = try {
+                        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            ?: throw Exception("Gagal membaca file gambar")
+                    } catch (e: Exception) {
+                        android.util.Log.e("EditProfileVM", "Error reading URI", e)
+                        throw Exception("File tidak dapat diakses")
+                    }
+                    
+                    if (bytes.size > 2 * 1024 * 1024) { // 2MB Limit
+                         throw Exception("Ukuran foto terlalu besar (maks 2MB)")
+                    }
                     
                     val uploadResult = userRepo.uploadAvatar(uid, bytes)
                     if (uploadResult.isFailure) {
-                        val error = uploadResult.exceptionOrNull()?.message ?: "Gagal mengunggah foto"
-                        android.util.Log.e("EditProfileVM", "Upload avatar failed: $error")
-                        throw Exception(error)
+                        val error = uploadResult.exceptionOrNull()
+                        android.util.Log.e("EditProfileVM", "Upload failed", error)
+                        throw Exception("Gagal mengunggah ke Cloudflare: ${error?.message}")
                     }
                     android.util.Log.d("EditProfileVM", "Avatar upload success")
                 }

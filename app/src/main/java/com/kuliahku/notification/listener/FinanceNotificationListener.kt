@@ -6,13 +6,22 @@ import android.content.Context
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.kuliahku.R
 import com.kuliahku.data.model.Transaction
+import com.kuliahku.data.model.TxType
 import com.kuliahku.data.repository.TransactionRepository
+import com.kuliahku.data.repository.UserRepository
+import com.kuliahku.notification.NotificationChannels
 import com.kuliahku.notification.parser.NotificationParserRegistry
+import com.kuliahku.util.FinanceStats
+import com.kuliahku.util.MonthKey
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,6 +29,7 @@ import javax.inject.Inject
 class FinanceNotificationListener : NotificationListenerService() {
 
     @Inject lateinit var repo: TransactionRepository
+    @Inject lateinit var userRepo: UserRepository
     @Inject lateinit var parserRegistry: NotificationParserRegistry
     @Inject lateinit var auth: com.google.firebase.auth.FirebaseAuth
 
@@ -98,6 +108,7 @@ class FinanceNotificationListener : NotificationListenerService() {
                             android.widget.Toast.LENGTH_SHORT
                         ).show()
                     }
+                    checkDailyLimit(parsed.type == com.kuliahku.data.model.TxType.EXPENSE)
                 }.onFailure { e ->
                     android.util.Log.e("FinanceNotif", "Gagal simpan: ${e.message}")
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -112,6 +123,66 @@ class FinanceNotificationListener : NotificationListenerService() {
                 android.util.Log.e("FinanceNotif", "Error", e)
             }
         }
+    }
+
+    private var lastNotifiedKey = ""
+
+    private fun checkDailyLimit(isExpense: Boolean) {
+        if (!isExpense) return
+        scope.launch {
+            val uid = auth.currentUser?.uid ?: return@launch
+            val user = userRepo.getUser(uid) ?: return@launch
+            val limit = user.settings.dailyLimit
+            if (limit <= 0) return@launch
+
+            val monthTransactions = repo.observeAll().first().filter { 
+                it.monthKey == MonthKey.of(java.util.Date()) 
+            }
+            val summary = FinanceStats.monthlySummary(monthTransactions)
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            val key = "$today:$limit"
+            
+            if (summary.todayExpense > limit) {
+                if (lastNotifiedKey != key) {
+                    lastNotifiedKey = key
+                    showLimitNotification(summary.todayExpense, limit)
+                }
+            } else {
+                if (lastNotifiedKey == key) {
+                    lastNotifiedKey = ""
+                }
+            }
+        }
+    }
+
+    private fun showLimitNotification(todayExpense: Long, limit: Long) {
+        val title = "Batas Harian Terlampaui!"
+        val body = "Pengeluaran hari ini Rp $todayExpense telah melebihi batas Rp $limit."
+
+        val intent = android.content.Intent(this, com.kuliahku.MainActivity::class.java).apply {
+            data = android.net.Uri.parse("kuliahku://finance")
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = android.app.PendingIntent.getActivity(
+            this,
+            1001,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, NotificationChannels.FINANCE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(this).notify(1001, notification)
+        } catch (_: SecurityException) { }
     }
 
     companion object {

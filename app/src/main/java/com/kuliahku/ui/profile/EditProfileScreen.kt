@@ -58,10 +58,13 @@ fun EditProfileScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { navController.popBackStack() }) {
+                IconButton(
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.size(48.dp)
+                ) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")
                 }
                 Text(

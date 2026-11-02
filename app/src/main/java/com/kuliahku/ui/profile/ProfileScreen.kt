@@ -148,7 +148,7 @@ fun ProfileScreen(
                 )
 
                 // Foto + identitas
-                Column(Modifier.fillMaxSize().padding(start = 46.dp, top = 66.dp)) {
+                Column(Modifier.fillMaxSize().padding(start = 24.dp, top = 66.dp)) {
                     Box {
                         AsyncImage(
                             model = state.user?.photoUrl,
@@ -245,7 +245,7 @@ fun ProfileScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 23.dp)
+                    .padding(horizontal = 24.dp)
                     .height(50.dp)
                     .clip(CircleShape)
                     .clickable { viewModel.showLogoutDialog(true) },

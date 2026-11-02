@@ -184,7 +184,7 @@ fun HomeScreen(
             .fillMaxSize()
             .background(p.background)
             .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 24.dp)
     ) {
         Spacer(Modifier.height(58.dp))
 
@@ -192,8 +192,7 @@ fun HomeScreen(
         AnimatedEntry(delay = 100) {
             Row(
                 Modifier
-                    .fillMaxWidth()
-                    .padding(start = 11.dp),
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
                 Column(Modifier.weight(1f)) {
@@ -224,7 +223,7 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Sekarang ada agenda apa hari ini?",
+                        "Apa agenda kamu hari ini?",
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
                         fontWeight = FontWeight.Medium,
@@ -233,7 +232,7 @@ fun HomeScreen(
                 }
                 Box(
                     Modifier
-                        .padding(top = 10.dp, end = 13.dp)
+                        .padding(top = 10.dp)
                         .size(34.dp)
                         .clip(CircleShape)
                         .clickable { /* Inbox */ },

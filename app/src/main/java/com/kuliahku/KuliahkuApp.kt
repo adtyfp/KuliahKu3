@@ -13,6 +13,9 @@ class KuliahkuApp : Application() {
     override fun onCreate() {
         super.onCreate()
         
+        // Force disable chunked encoding for AWS S3/Cloudflare R2 compatibility
+        System.setProperty("com.amazonaws.services.s3.enforceV4ChunkedEncoding", "false")
+        
         // Initialize Firebase before App Check
         FirebaseApp.initializeApp(this)
 

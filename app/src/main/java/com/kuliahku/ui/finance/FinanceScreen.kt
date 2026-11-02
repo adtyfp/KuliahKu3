@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.*
@@ -33,11 +35,13 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.kuliahku.data.model.TxType
@@ -148,6 +152,7 @@ fun FinanceScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     var lastDeleted by remember { mutableStateOf<Transaction?>(null) }
     val p = finPalette()
+    var showLimitDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { ev ->
@@ -179,7 +184,6 @@ fun FinanceScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = p.background
     ) { padding ->
-        // padding dari Scaffold sudah memuat inset status bar, jadi spacer atas dibuat kecil.
         Column(
             Modifier
                 .fillMaxSize()
@@ -195,7 +199,6 @@ fun FinanceScreen(
                     Modifier.fillMaxWidth().height(48.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Area sentuh 40dp, ikon 24dp. Offset menyejajarkan ikon dengan tepi konten.
                     Box(
                         Modifier
                             .offset(x = (-10).dp)
@@ -228,6 +231,12 @@ fun FinanceScreen(
                         ) {
                             Icon(UploadTrayIcon, "Ekspor", tint = p.textPrimary, modifier = Modifier.size(24.dp))
                         }
+                        Box(
+                            Modifier.size(40.dp).clip(CircleShape).clickable { showLimitDialog = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Settings, "Pengaturan", tint = p.textPrimary, modifier = Modifier.size(24.dp))
+                        }
                     }
                 }
             }
@@ -244,35 +253,43 @@ fun FinanceScreen(
                 else -> {
                     // ---------------- Ringkasan bulan ----------------
                     AnimatedEntry(delay = 100) {
-                        Row(
-                            Modifier.fillMaxWidth().height(284.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            WeeklyBarCard(
-                                monthCal = state.currentMonthCal,
-                                weekly = state.monthlySummary.weeklyExpense,
-                                onPrev = viewModel::previousMonth,
-                                onNext = viewModel::nextMonth,
-                                modifier = Modifier.weight(1f).fillMaxHeight()
+                        Column {
+                            DailyLimitProgress(
+                                dailyLimit = state.settings.dailyLimit,
+                                todayExpense = state.monthlySummary.todayExpense,
+                                p = p
                             )
-                            Column(
-                                Modifier.weight(1f).fillMaxHeight(),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            Spacer(Modifier.height(12.dp))
+                            Row(
+                                Modifier.fillMaxWidth().height(284.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                SummaryCard(
-                                    title = "Total Pemasukan",
-                                    value = CurrencyFormatter.format(state.monthlySummary.totalIncome),
-                                    bg = p.greenBg,
-                                    icon = MoneyBagPlusIcon,
-                                    modifier = Modifier.weight(1f)
+                                WeeklyBarCard(
+                                    monthCal = state.currentMonthCal,
+                                    weekly = state.monthlySummary.weeklyExpense,
+                                    onPrev = viewModel::previousMonth,
+                                    onNext = viewModel::nextMonth,
+                                    modifier = Modifier.weight(1f).fillMaxHeight()
                                 )
-                                SummaryCard(
-                                    title = "Total Pengeluaran",
-                                    value = CurrencyFormatter.format(state.monthlySummary.totalExpense),
-                                    bg = p.redBg,
-                                    icon = DashedCoinIcon,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Column(
+                                    Modifier.weight(1f).fillMaxHeight(),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    SummaryCard(
+                                        title = "Total Pemasukan",
+                                        value = CurrencyFormatter.format(state.monthlySummary.totalIncome),
+                                        bg = p.greenBg,
+                                        icon = MoneyBagPlusIcon,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    SummaryCard(
+                                        title = "Total Pengeluaran",
+                                        value = CurrencyFormatter.format(state.monthlySummary.totalExpense),
+                                        bg = p.redBg,
+                                        icon = DashedCoinIcon,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
                         }
                     }
@@ -372,7 +389,6 @@ fun FinanceScreen(
                                         TabChip("Tabel", state.chartTab == ChartTab.TABLE) { viewModel.setChartTab(ChartTab.TABLE) }
                                         if (state.chartTab == ChartTab.CHART) {
                                             Spacer(Modifier.weight(1f))
-                                            // Pilihan jenis data: kontrol segmented kecil di kanan
                                             Row(
                                                 Modifier
                                                     .clip(CircleShape)
@@ -419,6 +435,139 @@ fun FinanceScreen(
             onConfirm = viewModel::confirmDelete,
             dismissText = "Batal"
         )
+    }
+
+    if (showLimitDialog) {
+        DailyLimitDialog(
+            currentLimit = state.settings.dailyLimit,
+            onDismiss = { showLimitDialog = false },
+            onConfirm = {
+                viewModel.updateDailyLimit(it)
+                showLimitDialog = false
+            },
+            p = p
+        )
+    }
+}
+
+@Composable
+private fun DailyLimitProgress(
+    dailyLimit: Long,
+    todayExpense: Long,
+    p: FinPalette
+) {
+    if (dailyLimit <= 0) return
+
+    val progress = (todayExpense.toFloat() / dailyLimit).coerceIn(0f, 1f)
+    val isOverLimit = todayExpense > dailyLimit
+    val shape = RoundedCornerShape(24.dp)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, shape, ambientColor = Color.Black.copy(alpha = p.shadowAlpha), spotColor = Color.Black.copy(alpha = p.shadowAlpha)),
+        shape = shape,
+        color = p.surface,
+        border = BorderStroke(1.dp, p.border)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Batas Harian",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = p.textPrimary
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "${CurrencyFormatter.formatCompact(todayExpense)} / ${CurrencyFormatter.formatCompact(dailyLimit)}",
+                    fontSize = 12.sp,
+                    color = if (isOverLimit) p.expense else p.textGray
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape),
+                color = if (isOverLimit) p.expense else p.accent,
+                trackColor = p.border,
+            )
+            if (isOverLimit) {
+                Text(
+                    "Peringatan: Pengeluaran melebihi batas!",
+                    fontSize = 11.sp,
+                    color = p.expense,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyLimitDialog(
+    currentLimit: Long,
+    onDismiss: () -> Unit,
+    onConfirm: (Long) -> Unit,
+    p: FinPalette
+) {
+    var limitText by remember { mutableStateOf(if (currentLimit > 0) currentLimit.toString() else "") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = p.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.Settings, null, tint = p.accent, modifier = Modifier.size(32.dp))
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Atur Batas Harian",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = p.textPrimary
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Masukkan jumlah maksimal pengeluaran harian Anda.",
+                    fontSize = 14.sp,
+                    color = p.textGray,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(20.dp))
+                OutlinedTextField(
+                    value = limitText,
+                    onValueChange = { if (it.all { c -> c.isDigit() }) limitText = it },
+                    label = { Text("Batas Harian (Rp)") },
+                    prefix = { Text("Rp ") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(24.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Batal", color = p.textGray)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = { onConfirm(limitText.toLongOrNull() ?: 0L) },
+                        colors = ButtonDefaults.buttonColors(containerColor = p.accent),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Simpan", color = Color.White)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -614,9 +763,6 @@ private fun SummaryCard(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Baris transaksi
-// ---------------------------------------------------------------------------
 @Composable
 fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit) {
     val p = finPalette()
@@ -664,7 +810,6 @@ fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit
                     )
                 }
             }
-            // CurrencyFormatter.format sudah menyertakan awalan "Rp." (dipakai juga di kartu ringkasan)
             Text(
                 CurrencyFormatter.format(tx.amount),
                 color = if (isIncome) p.income else p.expense,
@@ -700,12 +845,6 @@ private fun TabChip(label: String, selected: Boolean, small: Boolean = false, on
     }
 }
 
-// ---------------------------------------------------------------------------
-// Line chart tahunan - fleksibel:
-//  * menampilkan semua bulan yang ada pada data tahun tersebut (Jan - Des)
-//  * lebar slot menyesuaikan lebar kartu dan jumlah titik
-//  * skala sumbu Y dihitung otomatis dari nilai tertinggi
-// ---------------------------------------------------------------------------
 @Composable
 private fun YearlyLineChart(
     points: List<YearlyPoint>,
@@ -726,7 +865,7 @@ private fun YearlyLineChart(
         val slotW = plotW / n
         val zeroY = 158.dp
         val topY = 28.dp
-        val unit = zeroY - topY // tinggi untuk 2 x step (gridline paling atas)
+        val unit = zeroY - topY
 
         fun xOf(i: Int): Dp = axisW + slotW * (i + 0.5f)
         fun yOf(v: Long): Dp = zeroY - unit * (v.toFloat() / (2f * step))
@@ -763,7 +902,6 @@ private fun YearlyLineChart(
             }
         }
 
-        // Label sumbu Y
         listOf(2 * step, step, 0L).forEach { level ->
             Box(
                 Modifier.offset(x = 0.dp, y = yOf(level) - 18.dp).width(axisW),
@@ -780,7 +918,6 @@ private fun YearlyLineChart(
             }
         }
 
-        // Label sumbu X (jika slot terlalu sempit, tampilkan selang-seling)
         data.forEachIndexed { i, pt ->
             if (slotW >= 22.dp || i % 2 == 0) {
                 Box(
@@ -801,7 +938,6 @@ private fun YearlyLineChart(
             }
         }
 
-        // Label puncak
         if (peakIndex >= 0) {
             Box(
                 Modifier.offset(x = xOf(peakIndex) - 30.dp, y = yOf(values[peakIndex]) - 27.dp).width(60.dp),
@@ -848,11 +984,6 @@ private fun YearlyTable(points: List<YearlyPoint>) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helper skala & format
-// ---------------------------------------------------------------------------
-
-/** Batas sumbu bar chart: kelipatan 1/2/4/8 x 10^n supaya 4 gridline bernilai bulat. */
 private fun niceCeil(v: Long): Long {
     if (v <= 0L) return 100_000L
     var mag = 1L
@@ -863,7 +994,6 @@ private fun niceCeil(v: Long): Long {
     return mag * 10
 }
 
-/** Step gridline line chart: bilangan 1/2/5 x 10^n terkecil dengan 2 x step >= nilai maksimum. */
 private fun niceStep(maxV: Long): Long {
     if (maxV <= 0L) return 500_000L
     val target = maxV / 2.0
@@ -877,9 +1007,6 @@ private fun niceStep(maxV: Long): Long {
 
 private fun formatK(v: Long): String = if (v >= 1000L) "${v / 1000}K" else v.toString()
 
-// ---------------------------------------------------------------------------
-// Ikon vektor (digambar mengikuti desain, ukuran tampil 24dp dengan garis 2dp)
-// ---------------------------------------------------------------------------
 private fun vec(name: String, build: ImageVector.Builder.() -> Unit): ImageVector =
     ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply(build).build()
 
@@ -962,9 +1089,7 @@ val BanknoteMinusIcon = vec("BanknoteMinus") {
     filled("M16 17.5h7v2h-7z")
 }
 
-// Ekstensi ViewModel untuk ekspor (dipindah agar file ini ringkas)
 private fun FinanceViewModel.exportCsv(context: android.content.Context) {
-    // detail ada di FinanceExport.kt
     com.kuliahku.util.FinanceExport.buildCsv(
         context = context,
         transactions = uiState.value.yearTransactions

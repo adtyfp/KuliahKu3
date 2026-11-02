@@ -22,4 +22,6 @@ object MonthKey {
     }
 
     val BUCKETS = listOf("1-6", "7-13", "14-20", "21-27", "28-31")
+
+    fun currentBucket(): String = weekBucket(Calendar.getInstance().get(Calendar.DAY_OF_MONTH))
 }

@@ -1,43 +1,130 @@
 package com.kuliahku.ui.scan
 
+import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.kuliahku.ai.AiClient
+import com.kuliahku.data.model.Flashcard
 import com.kuliahku.data.model.JournalReference
-import com.kuliahku.ui.components.PrimaryPillButton
-import com.kuliahku.ui.theme.*
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.CircleShape
+import com.kuliahku.data.model.QuizQuestion
 import java.text.NumberFormat
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ─────────────────────────────────────────────────────────────────────────────
+// PALET — sama dengan layar lain (Home, Keuangan, Tugas, Kalender).
+// Light : latar #FBFCFF, kartu putih, border #E0E0E0, aksen #0F79DC.
+// Dark  : latar #0E1220, kartu #171C2C, border #2A3350, teks #F1F4FF, aksen #3B6FE8.
+// ─────────────────────────────────────────────────────────────────────────────
+private class ResultPalette(
+    val background: Color,
+    val surface: Color,
+    val border: Color,
+    val textPrimary: Color,
+    val textSecondary: Color,
+    val accent: Color,
+    val accentText: Color,
+    val accentSoft: Color,
+    val success: Color,
+    val successSoft: Color,
+    val danger: Color,
+    val dangerSoft: Color,
+    val shadowAlpha: Float
+)
+
+private val LightResultPalette = ResultPalette(
+    background = Color(0xFFFBFCFF),
+    surface = Color.White,
+    border = Color(0xFFE0E0E0),
+    textPrimary = Color.Black,
+    textSecondary = Color(0xFF767678),
+    accent = Color(0xFF0F79DC),
+    accentText = Color(0xFF0F79DC),
+    accentSoft = Color(0xFFE3EEFB),
+    success = Color(0xFF1E9E1E),
+    successSoft = Color(0xFFDDF8DD),
+    danger = Color(0xFFE02020),
+    dangerSoft = Color(0xFFFFE3E3),
+    shadowAlpha = 0.08f
+)
+
+private val DarkResultPalette = ResultPalette(
+    background = Color(0xFF0E1220),
+    surface = Color(0xFF171C2C),
+    border = Color(0xFF2A3350),
+    textPrimary = Color(0xFFF1F4FF),
+    textSecondary = Color(0xFFA3ABC4),
+    accent = Color(0xFF3B6FE8),
+    accentText = Color(0xFF7BA0FF),
+    accentSoft = Color(0xFF1C2B55),
+    success = Color(0xFF3DD083),
+    successSoft = Color(0xFF14362A),
+    danger = Color(0xFFFF6B7A),
+    dangerSoft = Color(0xFF45202A),
+    shadowAlpha = 0.45f
+)
+
+@Composable
+private fun resultPalette(): ResultPalette =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkResultPalette else LightResultPalette
+
+/** Kartu standar: radius 16, border 1 dp, bayangan lembut (sama dengan kartu tugas). */
+private fun Modifier.card(p: ResultPalette, radius: Dp = 16.dp): Modifier {
+    val shape = RoundedCornerShape(radius)
+    return this
+        .shadow(
+            4.dp, shape,
+            ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
+            spotColor = Color.Black.copy(alpha = p.shadowAlpha)
+        )
+        .background(p.surface, shape)
+        .border(1.dp, p.border, shape)
+}
+
+private fun tabLabel(t: ResultTab): String = when (t) {
+    ResultTab.SUMMARY -> "Ringkasan"
+    ResultTab.QUIZ -> "Kuis"
+    ResultTab.FLASHCARD -> "Flashcard"
+    ResultTab.CHAT -> "Chat"
+    ResultTab.REFERENCE -> "Referensi"
+    else -> t.name.lowercase().replaceFirstChar { it.uppercase() }
+}
+
 @Composable
 fun MaterialResultScreen(
     navController: NavHostController,
@@ -45,6 +132,7 @@ fun MaterialResultScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val p = resultPalette()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { ev ->
@@ -57,242 +145,606 @@ fun MaterialResultScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = { Text(state.material?.title ?: "Hasil Materi", maxLines = 1) },
-                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali") } }
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = p.background,
+        contentColor = p.textPrimary
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            // Banner AI
-            Surface(color = BlueSoft.copy(alpha = 0.5f), modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Info, null, tint = Primary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(AiClient.LABEL_AI, style = MaterialTheme.typography.labelMedium, color = Primary)
+            // ── Header: chevron + judul materi ──────────────────────────────────
+            Row(
+                Modifier.fillMaxWidth().padding(start = 14.dp, end = 20.dp, top = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Filled.ArrowBackIosNew, "Kembali", Modifier.size(24.dp), tint = p.textPrimary)
                 }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    state.material?.title ?: "Hasil Materi",
+                    fontSize = 22.sp,
+                    lineHeight = 30.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = p.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            // Tabs
-            ScrollableTabRow(selectedTabIndex = state.tab.ordinal, edgePadding = 16.dp) {
+            Spacer(Modifier.height(12.dp))
+
+            // ── Banner AI ───────────────────────────────────────────────────────
+            Row(
+                Modifier
+                    .padding(horizontal = 20.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(p.accentSoft)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.Info, null, tint = p.accentText, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    AiClient.LABEL_AI,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = p.accentText
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // ── Tab sebagai chip pill (gaya yang sama dengan filter Tugas) ─────────
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 ResultTab.entries.forEach { t ->
-                    Tab(
-                        selected = state.tab == t,
-                        onClick = { viewModel.setTab(t) },
-                        text = { Text(t.name.lowercase().replaceFirstChar { it.uppercase() }) }
-                    )
+                    TabChip(tabLabel(t), selected = state.tab == t, p = p) { viewModel.setTab(t) }
                 }
             }
 
             if (state.isAiWorking) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Text(state.aiProgress, modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.labelMedium)
+                Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                        color = p.accent,
+                        trackColor = p.border
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(state.aiProgress, fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
+                }
+            } else {
+                Spacer(Modifier.height(4.dp))
             }
 
-            when (state.tab) {
-                ResultTab.SUMMARY -> SummaryTab(
-                    summary = state.summary,
-                    onGenerate = viewModel::generateSummary,
-                    onSaveNote = viewModel::saveAsNote
-                )
-                ResultTab.QUIZ -> QuizTab(
-                    quiz = state.quiz,
-                    answers = state.quizAnswers,
-                    submitted = state.quizSubmitted,
-                    score = state.quizScore,
-                    onSelect = viewModel::selectAnswer,
-                    onSubmit = viewModel::submitQuiz,
-                    onGenerate = viewModel::generateQuiz
-                )
-                ResultTab.FLASHCARD -> FlashcardTab(
-                    cards = state.flashcards,
-                    onGenerate = viewModel::generateFlashcards
-                )
-                ResultTab.CHAT -> ChatTab(
-                    messages = state.chatMessages,
-                    input = state.chatInput,
-                    onInput = viewModel::onChatInput,
-                    onSend = viewModel::sendChat
-                )
-                ResultTab.REFERENCE -> ReferenceTab(
-                    references = state.suggestedReferences,
-                    onGenerate = viewModel::generateReferences
-                )
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (state.tab) {
+                    ResultTab.SUMMARY -> SummaryTab(
+                        summary = state.summary,
+                        p = p,
+                        onGenerate = viewModel::generateSummary,
+                        onSaveNote = viewModel::saveAsNote
+                    )
+                    ResultTab.QUIZ -> QuizTab(
+                        quiz = state.quiz,
+                        answers = state.quizAnswers,
+                        submitted = state.quizSubmitted,
+                        score = state.quizScore,
+                        p = p,
+                        onSelect = viewModel::selectAnswer,
+                        onSubmit = viewModel::submitQuiz,
+                        onGenerate = viewModel::generateQuiz
+                    )
+                    ResultTab.FLASHCARD -> FlashcardTab(
+                        cards = state.flashcards,
+                        p = p,
+                        onGenerate = viewModel::generateFlashcards
+                    )
+                    ResultTab.CHAT -> ChatTab(
+                        messages = state.chatMessages,
+                        input = state.chatInput,
+                        p = p,
+                        onInput = viewModel::onChatInput,
+                        onSend = viewModel::sendChat
+                    )
+                    ResultTab.REFERENCE -> ReferenceTab(
+                        references = state.suggestedReferences,
+                        p = p,
+                        onGenerate = viewModel::generateReferences
+                    )
+                }
             }
         }
     }
 }
+
+// ── Komponen umum ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun SummaryTab(summary: String?, onGenerate: () -> Unit, onSaveNote: () -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        if (summary.isNullOrBlank()) {
-            Text("Belum ada ringkasan. Ketuk tombol di bawah untuk membuat ringkasan AI.", style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(16.dp))
-            PrimaryPillButton("Buat Ringkasan", onGenerate)
-        } else {
-            Text("Ringkasan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text(summary, style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(24.dp))
-            PrimaryPillButton("Simpan sebagai Catatan", onSaveNote)
-        }
+private fun TabChip(label: String, selected: Boolean, p: ResultPalette, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier
+            .height(36.dp)
+            .clip(shape)
+            .background(if (selected) p.accent else p.surface)
+            .then(if (selected) Modifier else Modifier.border(1.dp, p.border, shape))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) Color.White else p.textSecondary,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }
+
+/** Tombol pill 52 dp, sama dengan tombol Submit di layar form. */
+@Composable
+private fun ActionButton(
+    text: String,
+    onClick: () -> Unit,
+    p: ResultPalette,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(CircleShape)
+            .background(p.accent.copy(alpha = if (enabled) 1f else 0.4f))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+    }
+}
+
+/** Keadaan kosong: ikon di lingkaran lembut, pesan, lalu tombol aksi. */
+@Composable
+private fun EmptyState(
+    icon: ImageVector,
+    message: String,
+    buttonText: String,
+    p: ResultPalette,
+    onClick: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 40.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier.size(72.dp).clip(CircleShape).background(p.accentSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = p.accentText, modifier = Modifier.size(32.dp))
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            message,
+            fontSize = 14.sp,
+            lineHeight = 21.sp,
+            color = p.textSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(24.dp))
+        ActionButton(buttonText, onClick, p, Modifier.widthIn(max = 280.dp))
+    }
+}
+
+// ── Ringkasan ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SummaryTab(summary: String?, p: ResultPalette, onGenerate: () -> Unit, onSaveNote: () -> Unit) {
+    if (summary.isNullOrBlank()) {
+        EmptyState(
+            icon = Icons.Filled.AutoAwesome,
+            message = "Belum ada ringkasan. Ketuk tombol di bawah untuk membuat ringkasan AI.",
+            buttonText = "Buat Ringkasan",
+            p = p,
+            onClick = onGenerate
+        )
+        return
+    }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Column(Modifier.fillMaxWidth().card(p, 20.dp).padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(32.dp).clip(CircleShape).background(p.accentSoft),
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Filled.AutoAwesome, null, tint = p.accentText, modifier = Modifier.size(18.dp)) }
+                Spacer(Modifier.width(10.dp))
+                Text("Ringkasan", fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, color = p.textPrimary)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(summary, fontSize = 15.sp, lineHeight = 24.sp, color = p.textPrimary)
+        }
+        Spacer(Modifier.height(20.dp))
+        ActionButton("Simpan sebagai Catatan", onSaveNote, p)
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ── Kuis ──────────────────────────────────────────────────────────────────────
+
+private enum class OptionState { IDLE, SELECTED, CORRECT, WRONG }
 
 @Composable
 private fun QuizTab(
-    quiz: List<com.kuliahku.data.model.QuizQuestion>,
+    quiz: List<QuizQuestion>,
     answers: Map<Int, Int>,
     submitted: Boolean,
     score: Int,
+    p: ResultPalette,
     onSelect: (Int, Int) -> Unit,
     onSubmit: () -> Unit,
     onGenerate: () -> Unit
 ) {
     if (quiz.isEmpty()) {
-        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Belum ada kuis.")
-            Spacer(Modifier.height(16.dp))
-            PrimaryPillButton("Buat 10 Soal", onGenerate)
-        }
+        EmptyState(
+            icon = Icons.Filled.Quiz,
+            message = "Belum ada kuis.",
+            buttonText = "Buat 10 Soal",
+            p = p,
+            onClick = onGenerate
+        )
         return
     }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         if (submitted) {
             item {
-                Surface(shape = RoundedCornerShape(16.dp), color = GreenSoft, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Skor: $score / ${quiz.size} (${(score * 100 / quiz.size)}%)", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        val topics = quiz.filterIndexed { i, q -> answers[i] != q.correctIndex }.map { it.topic }.distinct()
-                        if (topics.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text("Materi yang perlu dipelajari:", style = MaterialTheme.typography.titleMedium)
-                            topics.forEach { Text("• $it") }
+                val percent = score * 100 / quiz.size
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(p.accentSoft)
+                        .padding(20.dp)
+                ) {
+                    Text("Skor Kamu", fontSize = 13.sp, lineHeight = 18.sp, color = p.accentText, fontWeight = FontWeight.Medium)
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text("$score / ${quiz.size}", fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, color = p.textPrimary)
+                        Spacer(Modifier.width(10.dp))
+                        Text("$percent%", fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, color = p.accentText)
+                    }
+                    val topics = quiz.filterIndexed { i, q -> answers[i] != q.correctIndex }.map { it.topic }.distinct()
+                    if (topics.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "Materi yang perlu dipelajari",
+                            fontSize = 14.sp, lineHeight = 20.sp,
+                            fontWeight = FontWeight.SemiBold, color = p.textPrimary
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        topics.forEach {
+                            Text("• $it", fontSize = 14.sp, lineHeight = 22.sp, color = p.textPrimary)
                         }
                     }
                 }
             }
         }
         itemsIndexed(quiz) { i, q ->
-            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("${i + 1}. ${q.question}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
+            Column(Modifier.fillMaxWidth().card(p).padding(16.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Box(
+                        Modifier.size(28.dp).clip(CircleShape).background(p.accentSoft),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("${i + 1}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = p.accentText)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        q.question,
+                        fontSize = 15.sp, lineHeight = 22.sp,
+                        fontWeight = FontWeight.SemiBold, color = p.textPrimary,
+                        modifier = Modifier.padding(top = 3.dp)
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     q.options.forEachIndexed { optIdx, opt ->
                         val selected = answers[i] == optIdx
                         val isCorrect = optIdx == q.correctIndex
-                        val color = when {
-                            !submitted && selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                            submitted && isCorrect -> GreenSoft
-                            submitted && selected && !isCorrect -> RedSoft
-                            else -> Color.Transparent
+                        val optState = when {
+                            submitted && isCorrect -> OptionState.CORRECT
+                            submitted && selected -> OptionState.WRONG
+                            !submitted && selected -> OptionState.SELECTED
+                            else -> OptionState.IDLE
                         }
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = color,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = !submitted) { onSelect(i, optIdx) }
-                        ) {
-                            Text(opt, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
-                        }
+                        OptionRow(opt, optState, p, enabled = !submitted) { onSelect(i, optIdx) }
                     }
                 }
             }
         }
         if (!submitted) {
-            item { PrimaryPillButton("Kumpulkan Jawaban", onSubmit, enabled = answers.size == quiz.size) }
-        }
-    }
-}
-
-@Composable
-private fun FlashcardTab(cards: List<com.kuliahku.data.model.Flashcard>, onGenerate: () -> Unit) {
-    if (cards.isEmpty()) {
-        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Belum ada flashcard.")
-            Spacer(Modifier.height(16.dp))
-            PrimaryPillButton("Buat Flashcard", onGenerate)
-        }
-        return
-    }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        itemsIndexed(cards) { _, c ->
-            var flipped by remember { mutableStateOf(false) }
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = if (flipped) BlueSoft else MaterialTheme.colorScheme.surface,
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth().clickable { flipped = !flipped }
-            ) {
-                Column(Modifier.padding(20.dp)) {
-                    Text(if (flipped) c.back else c.front, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(4.dp))
-                    Text(if (flipped) "Ketuk untuk kembali" else "Ketuk untuk melihat jawaban", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+            item {
+                Column {
+                    Text(
+                        "${answers.size} dari ${quiz.size} soal terjawab",
+                        fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary,
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp)
+                    )
+                    ActionButton("Kumpulkan Jawaban", onSubmit, p, enabled = answers.size == quiz.size)
                 }
             }
         }
     }
 }
+
+@Composable
+private fun OptionRow(text: String, optState: OptionState, p: ResultPalette, enabled: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    val container = when (optState) {
+        OptionState.IDLE -> Color.Transparent
+        OptionState.SELECTED -> p.accentSoft
+        OptionState.CORRECT -> p.successSoft
+        OptionState.WRONG -> p.dangerSoft
+    }
+    val stroke = when (optState) {
+        OptionState.IDLE -> p.border
+        OptionState.SELECTED -> p.accent
+        OptionState.CORRECT -> p.success
+        OptionState.WRONG -> p.danger
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(container)
+            .border(BorderStroke(1.dp, stroke), shape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Indikator bulat: kosong / terisi / centang / silang
+        Box(
+            Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .then(
+                    when (optState) {
+                        OptionState.IDLE -> Modifier.border(1.5.dp, p.border, CircleShape)
+                        OptionState.SELECTED -> Modifier.background(p.accent)
+                        OptionState.CORRECT -> Modifier.background(p.success)
+                        OptionState.WRONG -> Modifier.background(p.danger)
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            when (optState) {
+                OptionState.SELECTED -> Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
+                OptionState.CORRECT -> Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                OptionState.WRONG -> Icon(Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                OptionState.IDLE -> {}
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(text, fontSize = 14.sp, lineHeight = 21.sp, color = p.textPrimary)
+    }
+}
+
+// ── Flashcard ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun FlashcardTab(cards: List<Flashcard>, p: ResultPalette, onGenerate: () -> Unit) {
+    if (cards.isEmpty()) {
+        EmptyState(
+            icon = Icons.Filled.Layers,
+            message = "Belum ada flashcard.",
+            buttonText = "Buat Flashcard",
+            p = p,
+            onClick = onGenerate
+        )
+        return
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        itemsIndexed(cards) { index, c ->
+            var flipped by remember { mutableStateOf(false) }
+            val shape = RoundedCornerShape(20.dp)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        4.dp, shape,
+                        ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
+                        spotColor = Color.Black.copy(alpha = p.shadowAlpha)
+                    )
+                    .background(if (flipped) p.accentSoft else p.surface, shape)
+                    .border(1.dp, if (flipped) p.accent.copy(alpha = 0.5f) else p.border, shape)
+                    .clip(shape)
+                    .clickable { flipped = !flipped }
+                    .padding(20.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (flipped) "JAWABAN" else "PERTANYAAN",
+                        fontSize = 11.sp, lineHeight = 14.sp,
+                        fontWeight = FontWeight.Bold, color = p.accentText
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text("${index + 1} / ${cards.size}", fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    if (flipped) c.back else c.front,
+                    fontSize = 16.sp, lineHeight = 24.sp,
+                    fontWeight = FontWeight.SemiBold, color = p.textPrimary
+                )
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.SwapHoriz, null, tint = p.textSecondary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (flipped) "Ketuk untuk kembali" else "Ketuk untuk melihat jawaban",
+                        fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ChatTab(
     messages: List<Pair<String, String>>,
     input: String,
+    p: ResultPalette,
     onInput: (String) -> Unit,
     onSend: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            itemsIndexed(messages) { _, (role, msg) ->
-                val isUser = role == "user"
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isUser) Primary else MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.widthIn(max = 280.dp)
+    val listState = rememberLazyListState()
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    }
+
+    Column(Modifier.fillMaxSize().imePadding()) {
+        if (messages.isEmpty()) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    "Tanyakan apa saja tentang materi ini.",
+                    fontSize = 14.sp, lineHeight = 21.sp, color = p.textSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                itemsIndexed(messages) { _, (role, msg) ->
+                    val isUser = role == "user"
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
                     ) {
-                        Text(
-                            msg,
-                            Modifier.padding(12.dp),
-                            color = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        val shape = RoundedCornerShape(
+                            topStart = 18.dp, topEnd = 18.dp,
+                            bottomStart = if (isUser) 18.dp else 4.dp,
+                            bottomEnd = if (isUser) 4.dp else 18.dp
                         )
+                        Box(
+                            Modifier
+                                .widthIn(max = 280.dp)
+                                .clip(shape)
+                                .background(if (isUser) p.accent else p.surface)
+                                .then(if (isUser) Modifier else Modifier.border(1.dp, p.border, shape))
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Text(
+                                msg,
+                                fontSize = 14.sp, lineHeight = 21.sp,
+                                color = if (isUser) Color.White else p.textPrimary
+                            )
+                        }
                     }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(value = input, onValueChange = onInput, placeholder = { Text("Tanya materi...") }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.extraLarge)
-            Spacer(Modifier.width(8.dp))
-            FilledIconButton(onClick = onSend, enabled = input.isNotBlank()) { Icon(Icons.Filled.Send, "Kirim") }
+
+        // Kolom input pill + tombol kirim bulat (gaya sama dengan search bar + FAB di Tugas)
+        Row(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 52.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(p.surface)
+                    .border(1.dp, p.border, RoundedCornerShape(26.dp))
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (input.isEmpty()) {
+                    Text("Tanya materi...", fontSize = 15.sp, lineHeight = 22.sp, color = p.textSecondary)
+                }
+                BasicTextField(
+                    value = input,
+                    onValueChange = onInput,
+                    maxLines = 4,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 15.sp, lineHeight = 22.sp, color = p.textPrimary
+                    ),
+                    cursorBrush = SolidColor(p.textPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            val canSend = input.isNotBlank()
+            Box(
+                Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(p.accent.copy(alpha = if (canSend) 1f else 0.4f))
+                    .clickable(enabled = canSend, onClick = onSend),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, "Kirim", tint = Color.White, modifier = Modifier.size(22.dp))
+            }
         }
     }
 }
 
+// ── Referensi ─────────────────────────────────────────────────────────────────
+
 @Composable
-private fun ReferenceTab(references: List<JournalReference>, onGenerate: () -> Unit) {
+private fun ReferenceTab(references: List<JournalReference>, p: ResultPalette, onGenerate: () -> Unit) {
     val context = LocalContext.current
     if (references.isEmpty()) {
-        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Temukan referensi jurnal akademik yang relevan dengan materi ini.", textAlign = TextAlign.Center)
-            Spacer(Modifier.height(16.dp))
-            PrimaryPillButton("Cari Referensi AI", onGenerate)
-        }
+        EmptyState(
+            icon = Icons.Filled.Search,
+            message = "Temukan referensi jurnal akademik yang relevan dengan materi ini.",
+            buttonText = "Cari Referensi AI",
+            p = p,
+            onClick = onGenerate
+        )
         return
     }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item {
-            Text("Referensi Terkait", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("AI telah merangkum kata kunci dari materi dan mencari jurnal yang relevan.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            Spacer(Modifier.height(8.dp))
+            Column(Modifier.padding(bottom = 4.dp)) {
+                Text("Referensi Terkait", fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, color = p.textPrimary)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "AI telah merangkum kata kunci dari materi dan mencari jurnal yang relevan.",
+                    fontSize = 12.sp, lineHeight = 18.sp, color = p.textSecondary
+                )
+            }
         }
         itemsIndexed(references) { _, ref ->
-            ReferenceItem(ref = ref) {
+            ReferenceItem(ref = ref, p = p) {
                 val url = ref.doi ?: "https://openalex.org/works/${ref.id}"
                 val intent = CustomTabsIntent.Builder().build()
                 intent.launchUrl(context, url.toUri())
@@ -302,35 +754,56 @@ private fun ReferenceTab(references: List<JournalReference>, onGenerate: () -> U
 }
 
 @Composable
-private fun ReferenceItem(ref: JournalReference, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+private fun ReferenceItem(ref: JournalReference, p: ResultPalette, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .card(p)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(16.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(ref.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(20.dp).clip(CircleShape).background(Primary), contentAlignment = Alignment.Center) {
-                    Text(ref.firstAuthorInitial, color = Color.White, fontSize = 9.sp)
-                }
-                Spacer(Modifier.width(8.dp))
-                Text(ref.firstAuthor + if (ref.authorCount > 1) " et al." else "", style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                Spacer(Modifier.weight(1f))
-                Text(ref.year?.toString() ?: "-", style = MaterialTheme.typography.bodySmall)
+        Text(
+            ref.title,
+            fontSize = 15.sp, lineHeight = 22.sp,
+            fontWeight = FontWeight.SemiBold, color = p.textPrimary,
+            maxLines = 2, overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(24.dp).clip(CircleShape).background(p.accent),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(ref.firstAuthorInitial, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.ThumbUp, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                Spacer(Modifier.width(4.dp))
-                Text(NumberFormat.getIntegerInstance(Locale("id", "ID")).format(ref.citedByCount), style = MaterialTheme.typography.labelSmall)
-                Spacer(Modifier.width(12.dp))
-                if (ref.isOpenAccess) {
-                    Surface(color = GreenSoft, shape = RoundedCornerShape(4.dp)) {
-                        Text("Open Access", Modifier.padding(horizontal = 4.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, fontSize = 8.sp)
-                    }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                ref.firstAuthor + if (ref.authorCount > 1) " et al." else "",
+                fontSize = 13.sp, lineHeight = 18.sp, color = p.textSecondary,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(ref.year?.toString() ?: "-", fontSize = 13.sp, lineHeight = 18.sp, color = p.textSecondary)
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.ThumbUp, null, modifier = Modifier.size(14.dp), tint = p.textSecondary)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                NumberFormat.getIntegerInstance(Locale("id", "ID")).format(ref.citedByCount),
+                fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary
+            )
+            Spacer(Modifier.width(12.dp))
+            if (ref.isOpenAccess) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(p.successSoft)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text("Open Access", fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, color = p.success)
                 }
             }
         }
