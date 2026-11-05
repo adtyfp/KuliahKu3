@@ -28,6 +28,7 @@ import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.KuliahkuLogo
 import com.kuliahku.ui.components.PillTextField
 import com.kuliahku.ui.components.PrimaryPillButton
+import com.kuliahku.ui.theme.cardShadow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,8 +112,7 @@ fun RegisterScreen(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
                 placeholder = "Nama Lengkap",
-                error = state.nameError,
-                modifier = Modifier.shadow(8.dp, MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                error = state.nameError
             )
         }
         Spacer(Modifier.height(20.dp))
@@ -122,8 +122,7 @@ fun RegisterScreen(
                 onValueChange = viewModel::onEmailChange,
                 placeholder = "Email",
                 error = state.emailError,
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Email,
-                modifier = Modifier.shadow(8.dp, MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                keyboardType = androidx.compose.ui.text.input.KeyboardType.Email
             )
         }
         Spacer(Modifier.height(20.dp))
@@ -133,8 +132,7 @@ fun RegisterScreen(
                 onValueChange = viewModel::onPasswordChange,
                 placeholder = "Password",
                 isPassword = true,
-                error = state.passwordError,
-                modifier = Modifier.shadow(8.dp, MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                error = state.passwordError
             )
         }
         Spacer(Modifier.height(20.dp))
@@ -144,8 +142,7 @@ fun RegisterScreen(
                 onValueChange = viewModel::onNimChange,
                 placeholder = "NIM",
                 error = state.nimError,
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
-                modifier = Modifier.shadow(8.dp, MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
             )
         }
         Spacer(Modifier.height(20.dp))
@@ -155,8 +152,7 @@ fun RegisterScreen(
                 onValueChange = viewModel::onSemesterChange,
                 placeholder = "Semester",
                 error = state.semesterError,
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
-                modifier = Modifier.shadow(8.dp, MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
             )
         }
         Spacer(Modifier.height(32.dp))

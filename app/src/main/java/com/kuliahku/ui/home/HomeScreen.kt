@@ -39,6 +39,7 @@ import androidx.navigation.NavHostController
 import com.kuliahku.data.model.Task
 import com.kuliahku.data.model.TaskStatus
 import com.kuliahku.ui.components.AnimatedEntry
+import com.kuliahku.ui.theme.cardShadow
 import com.kuliahku.ui.navigation.Routes
 import com.kuliahku.util.DateFormatters
 import kotlin.math.PI
@@ -73,7 +74,6 @@ private class HomePalette(
     val statIconUpcoming: Color,
     val statIconDone: Color,
     val statIconLate: Color,
-    val shadowAlpha: Float,
     val gaugeHalo: Color,
     val gaugeTrack: Color,
     val gaugeLow: Color,
@@ -94,7 +94,7 @@ private class HomePalette(
 )
 
 private val LightPalette = HomePalette(
-    background = Color(0xFFF8FAFF), // Latar belakang putih kebiruan bersih
+    background = Color(0xFFFBFCFF), // Latar belakang putih kebiruan bersih
     progressCard = Color(0xFFF1F5F9), // Kartu progres biru sangat muda
     surface = Color.White,
     border = Color(0xFFE2E8F0), // Garis tepi halus (slate)
@@ -109,7 +109,6 @@ private val LightPalette = HomePalette(
     statIconUpcoming = Color(0xFF0EA5E9),
     statIconDone = Color(0xFF10B981),
     statIconLate = Color(0xFFEF4444),
-    shadowAlpha = 0.08f, // Sedikit ditingkatkan agar lebih 'hidup'
     gaugeHalo = Color(0xFFDBEAFE),
     gaugeTrack = Color(0xFFE2EAF5), // sedikit lebih gelap dari kartu agar pita yang belum tercapai tetap terlihat
     gaugeLow = Color(0xFF93C5FD),
@@ -145,7 +144,6 @@ private val DarkPalette = HomePalette(
     statIconUpcoming = Color(0xFF7BA0FF),
     statIconDone = Color(0xFF3DD083),
     statIconLate = Color(0xFFFF6B7A),
-    shadowAlpha = 0.45f,
     gaugeHalo = Color(0xFF3B6FE8),
     gaugeTrack = Color(0xFF1F2A4A),
     gaugeLow = Color(0xFF2B4A9A),
@@ -177,7 +175,6 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     val p = homePalette()
-    val shadowColor = Color.Black.copy(alpha = p.shadowAlpha)
 
     Column(
         modifier = Modifier
@@ -235,7 +232,7 @@ fun HomeScreen(
                         .padding(top = 10.dp)
                         .size(34.dp)
                         .clip(CircleShape)
-                        .clickable { /* Inbox */ },
+                        .clickable { navController.navigate(Routes.NOTIFICATIONS_LIST) },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -264,7 +261,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(442f / 268f)
-                    .shadow(8.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor),
+                    .cardShadow(shapeRadius = 28.dp),
                 shape = cardShape,
                 color = p.progressCard,
                 border = BorderStroke(2.dp, p.border)
@@ -382,7 +379,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(8.dp, RoundedCornerShape(28.dp), ambientColor = shadowColor, spotColor = shadowColor)
+                    .cardShadow(shapeRadius = 28.dp)
                     .clickable { navController.navigate(Routes.TASKS) },
                 shape = RoundedCornerShape(28.dp),
                 color = p.surface,
@@ -632,11 +629,10 @@ private fun ProgressGauge(progress: Float, p: HomePalette, modifier: Modifier = 
 fun StatCardMini(label: String, value: String, bgColor: Color, icon: ImageVector, iconColor: Color, modifier: Modifier) {
     val p = homePalette()
     val shape = RoundedCornerShape(25.dp)
-    val shadowColor = Color.Black.copy(alpha = p.shadowAlpha * 0.8f)
     Surface(
         modifier = modifier
             .height(70.dp)
-            .shadow(6.dp, shape, ambientColor = shadowColor, spotColor = shadowColor),
+            .cardShadow(shapeRadius = 25.dp),
         shape = shape,
         color = p.surface,
         border = BorderStroke(1.dp, p.border)
@@ -680,12 +676,11 @@ fun MenuActionButton(
 ) {
     val p = homePalette()
     val shape = RoundedCornerShape(25.dp)
-    val glow = borderColor.copy(alpha = if (p.shadowAlpha > 0.2f) 0.25f else 0.3f)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(62.dp)
-                .shadow(6.dp, shape, ambientColor = glow, spotColor = glow)
+                .cardShadow(shapeRadius = 25.dp, color = borderColor.copy(alpha = 0.25f))
                 .clip(shape)
                 .background(containerColor)
                 .border(1.dp, borderColor, shape)
@@ -758,7 +753,7 @@ fun TaskRowItem(task: Task, onToggle: () -> Unit) {
                 )
             }
             Text(
-                DateFormatters.formatTime(task.deadline?.toDate() ?: java.util.Date()),
+                DateFormatters.formatDateTime(task.deadline?.toDate() ?: java.util.Date()),
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
                 fontWeight = FontWeight.SemiBold,

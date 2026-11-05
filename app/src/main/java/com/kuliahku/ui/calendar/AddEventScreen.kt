@@ -57,6 +57,7 @@ import com.kuliahku.data.model.ReminderStyle
 import com.kuliahku.ui.theme.BadgeHighBg
 import com.kuliahku.ui.theme.BadgeLowBg
 import com.kuliahku.ui.theme.BadgeMediumBg
+import com.kuliahku.ui.theme.cardShadow
 import com.kuliahku.ui.components.WheelDateTimePicker
 import java.util.Calendar
 
@@ -76,8 +77,7 @@ private class EventPalette(
     val chevron: Color,
     val switchOff: Color,
     val switchOn: Color,
-    val button: Color,
-    val shadowAlpha: Float
+    val button: Color
 )
 
 private val LightEventPalette = EventPalette(
@@ -90,8 +90,7 @@ private val LightEventPalette = EventPalette(
     chevron = Color(0xFF7D7D7D),
     switchOff = Color(0xFFE7E7E7),
     switchOn = Color(0xFF0F79DC),
-    button = Color(0xFF0F79DC),
-    shadowAlpha = 0.12f
+    button = Color(0xFF0F79DC)
 )
 
 private val DarkEventPalette = EventPalette(
@@ -104,8 +103,7 @@ private val DarkEventPalette = EventPalette(
     chevron = Color(0xFFA3ABC4),
     switchOff = Color(0xFF2A3350),
     switchOn = Color(0xFF3B6FE8),
-    button = Color(0xFF3B6FE8),
-    shadowAlpha = 0.45f
+    button = Color(0xFF3B6FE8)
 )
 
 @Composable
@@ -425,14 +423,10 @@ fun AddEventScreen(
 }
 
 /** Latar + border 1 dp + bayangan lembut, sama untuk kolom judul dan kedua kartu. */
-private fun Modifier.cardSurface(p: EventPalette, shape: Shape): Modifier =
+@Composable
+private fun Modifier.cardSurface(p: EventPalette, shape: Shape, cornerRadius: Dp = 20.dp): Modifier =
     this
-        .shadow(
-            elevation = 6.dp,
-            shape = shape,
-            ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
-            spotColor = Color.Black.copy(alpha = p.shadowAlpha)
-        )
+        .cardShadow(shapeRadius = cornerRadius)
         .background(p.surface, shape)
         .border(1.dp, p.border, shape)
 
@@ -447,7 +441,7 @@ private fun TitleField(
         modifier = Modifier
             .fillMaxWidth()
             .height(51.dp)
-            .cardSurface(p, CircleShape)
+            .cardSurface(p, CircleShape, cornerRadius = 26.dp)
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.CenterStart
     ) {

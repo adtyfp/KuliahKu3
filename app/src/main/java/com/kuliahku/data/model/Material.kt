@@ -16,11 +16,18 @@ data class Material(
     val sourceRef: String? = null,       // storagePath / url / youtubeId
     val extractedText: String? = null,
     val summary: String? = null,
+    val chatHistory: List<ChatMessage> = emptyList(),
     val createdAt: Timestamp? = null,
     val updatedAt: Timestamp? = null
 ) {
     val sourceTypeEnum: MaterialSourceType get() = MaterialSourceType.from(sourceType)
 }
+
+data class ChatMessage(
+    val role: String = "",
+    val content: String = "",
+    val timestamp: Timestamp? = null
+)
 
 data class QuizQuestion(
     val question: String = "",

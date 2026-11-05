@@ -1,3 +1,4 @@
+
 package com.kuliahku.ui.calendar
 
 import androidx.lifecycle.SavedStateHandle
@@ -13,9 +14,16 @@ import com.kuliahku.notification.ReminderScheduler
 import com.kuliahku.util.DateFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 data class AddEventUiState(
@@ -56,19 +64,27 @@ class AddEventViewModel @Inject constructor(
     val events = _events.receiveAsFlow()
 
     init {
-        val editId: String? = savedState.get<String>("editId")
-        val dateKey: String? = savedState.get<String>("date")
-        // Prefill dari dateKey
+        val editId: String? = savedState.get("editId")
+        val dateKey: String? = savedState.get("date")
+
         if (!dateKey.isNullOrBlank()) {
             try {
-                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                 val parsed = sdf.parse(dateKey)
+
                 if (parsed != null) {
                     val cal = Calendar.getInstance().apply {
                         time = parsed
-                        set(Calendar.HOUR_OF_DAY, 9); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
+                        set(Calendar.HOUR_OF_DAY, 9)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
                     }
-                    val end = (cal.clone() as Calendar).apply { add(Calendar.HOUR_OF_DAY, 1) }
+
+                    val end = (cal.clone() as Calendar).apply {
+                        add(Calendar.HOUR_OF_DAY, 1)
+                    }
+
                     _uiState.update {
                         it.copy(
                             startMillis = cal.timeInMillis,
@@ -78,99 +94,240 @@ class AddEventViewModel @Inject constructor(
                         )
                     }
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                // Abaikan dateKey yang tidak valid.
+            }
         }
-        if (!editId.isNullOrBlank()) load(editId)
-        else updateLabels()
+
+        if (!editId.isNullOrBlank()) {
+            load(editId)
+        } else {
+            updateLabels()
+        }
     }
 
     private fun load(id: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isEdit = true, eventId = id) }
-            repo.observeAll().first().firstOrNull { it.id == id }?.let { ev ->
-                _uiState.update {
-                    it.copy(
-                        type = ev.typeEnum,
-                        title = ev.title,
-                        allDay = ev.allDay,
-                        startMillis = ev.start?.toDate()?.time ?: System.currentTimeMillis(),
-                        endMillis = ev.end?.toDate()?.time ?: System.currentTimeMillis(),
-                        repeat = ev.repeatEnum,
-                        reminderStyle = ev.reminderStyleEnum,
-                        reminderOffsetMinutes = ev.reminderOffsetMinutes,
-                        isLoading = false,
-                        startLabel = formatLabel(ev.start?.toDate()?.time ?: 0L),
-                        endLabel = formatLabel(ev.end?.toDate()?.time ?: 0L)
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    isEdit = true,
+                    eventId = id
+                )
+            }
+
+            try {
+                val event = repo.observeAll()
+                    .first()
+                    .firstOrNull { it.id == id }
+
+                if (event != null) {
+                    val start = event.start?.toDate()?.time
+                        ?: System.currentTimeMillis()
+                    val end = event.end?.toDate()?.time
+                        ?: start + 60 * 60 * 1000
+
+                    _uiState.update {
+                        it.copy(
+                            eventId = event.id,
+                            type = event.typeEnum,
+                            title = event.title,
+                            allDay = event.allDay,
+                            startMillis = start,
+                            endMillis = end,
+                            repeat = event.repeatEnum,
+                            reminderStyle = event.reminderStyleEnum,
+                            reminderOffsetMinutes = event.reminderOffsetMinutes,
+                            isLoading = false,
+                            isEdit = true,
+                            startLabel = formatLabel(start),
+                            endLabel = formatLabel(end)
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(isLoading = false)
+                    }
+                    _events.send(
+                        AddEventEvent.ShowMessage("Acara tidak ditemukan.")
                     )
                 }
-            } ?: _uiState.update { it.copy(isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false)
+                }
+                _events.send(
+                    AddEventEvent.ShowMessage(
+                        e.message ?: "Gagal memuat acara."
+                    )
+                )
+            }
         }
     }
 
-    fun onTypeChange(t: EventType) { _uiState.update { it.copy(type = t) } }
-    fun onTitleChange(v: String) { _uiState.update { it.copy(title = v, titleError = null) } }
-    fun onAllDayChange(v: Boolean) { _uiState.update { it.copy(allDay = v) } }
-    fun onRepeatChange(r: EventRepeat) { _uiState.update { it.copy(repeat = r) } }
-    fun onStyleChange(s: ReminderStyle) { _uiState.update { it.copy(reminderStyle = s) } }
-    fun onOffsetChange(m: Int?) { _uiState.update { it.copy(reminderOffsetMinutes = m) } }
+    fun onTypeChange(type: EventType) {
+        _uiState.update { it.copy(type = type) }
+    }
+
+    fun onTitleChange(value: String) {
+        _uiState.update {
+            it.copy(title = value, titleError = null)
+        }
+    }
+
+    fun onAllDayChange(value: Boolean) {
+        _uiState.update { it.copy(allDay = value) }
+    }
+
+    fun onRepeatChange(repeat: EventRepeat) {
+        _uiState.update { it.copy(repeat = repeat) }
+    }
+
+    fun onStyleChange(style: ReminderStyle) {
+        _uiState.update { it.copy(reminderStyle = style) }
+    }
+
+    fun onOffsetChange(minutes: Int?) {
+        _uiState.update {
+            it.copy(reminderOffsetMinutes = minutes)
+        }
+    }
 
     fun onStartChange(millis: Long) {
-        _uiState.update {
-            it.copy(
+        _uiState.update { state ->
+            val newEnd = if (state.endMillis <= millis) {
+                millis + 60 * 60 * 1000
+            } else {
+                state.endMillis
+            }
+
+            state.copy(
                 startMillis = millis,
-                endMillis = if (it.endMillis <= millis) millis + 60 * 60 * 1000 else it.endMillis,
+                endMillis = newEnd,
                 startLabel = formatLabel(millis),
+                endLabel = formatLabel(newEnd),
                 timeError = null
             )
         }
-        updateLabels()
     }
 
     fun onEndChange(millis: Long) {
-        val s = _uiState.value
-        if (millis < s.startMillis) {
-            _uiState.update { it.copy(timeError = "Waktu berakhir tidak boleh sebelum waktu mulai.") }
+        val state = _uiState.value
+
+        if (millis < state.startMillis) {
+            _uiState.update {
+                it.copy(
+                    timeError = "Waktu berakhir tidak boleh sebelum waktu mulai."
+                )
+            }
             return
         }
-        _uiState.update { it.copy(endMillis = millis, endLabel = formatLabel(millis), timeError = null) }
+
+        _uiState.update {
+            it.copy(
+                endMillis = millis,
+                endLabel = formatLabel(millis),
+                timeError = null
+            )
+        }
     }
 
     fun save() {
-        val s = _uiState.value
-        if (s.title.isBlank()) { _uiState.update { it.copy(titleError = "Judul wajib diisi.") }; return }
-        if (s.endMillis < s.startMillis) { _uiState.update { it.copy(timeError = "Waktu berakhir tidak valid.") }; return }
+        val state = _uiState.value
+
+        if (state.isSaving) return
+
+        if (state.title.isBlank()) {
+            _uiState.update {
+                it.copy(titleError = "Judul wajib diisi.")
+            }
+            return
+        }
+
+        if (state.endMillis < state.startMillis) {
+            _uiState.update {
+                it.copy(timeError = "Waktu berakhir tidak valid.")
+            }
+            return
+        }
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
-            val ev = Event(
-                id = s.eventId ?: "",
-                type = s.type.value,
-                title = s.title.trim(),
-                allDay = s.allDay,
-                start = Timestamp(java.util.Date(s.startMillis)),
-                end = Timestamp(java.util.Date(s.endMillis)),
-                repeat = s.repeat.value,
-                reminderStyle = s.reminderStyle.value,
-                reminderOffsetMinutes = if (s.reminderStyle == ReminderStyle.BANNER) null else s.reminderOffsetMinutes
-            )
-            repo.upsert(ev)
-                .onSuccess {
-                    scheduler.scheduleEventReminder(ev)
-                    _events.send(AddEventEvent.Saved)
+            _uiState.update {
+                it.copy(isSaving = true)
+            }
+
+            try {
+                val event = Event(
+                    id = state.eventId ?: "",
+                    type = state.type.value,
+                    title = state.title.trim(),
+                    allDay = state.allDay,
+                    start = Timestamp(Date(state.startMillis)),
+                    end = Timestamp(Date(state.endMillis)),
+                    repeat = state.repeat.value,
+                    reminderStyle = state.reminderStyle.value,
+                    reminderOffsetMinutes =
+                        if (state.reminderStyle == ReminderStyle.BANNER) {
+                            null
+                        } else {
+                            state.reminderOffsetMinutes
+                        }
+                )
+
+                repo.upsert(event)
+                    .onSuccess { savedId ->
+                        // Gunakan ID dokumen Firestore yang sebenarnya.
+                        val savedEvent = event.copy(id = savedId)
+
+                        // Simpan ID agar perubahan berikutnya tetap memakai ID yang sama.
+                        _uiState.update {
+                            it.copy(
+                                eventId = savedId,
+                                isEdit = true
+                            )
+                        }
+
+                        // Jadwalkan pengingat dengan ID yang valid.
+                        scheduler.scheduleEventReminder(savedEvent)
+
+                        _events.send(AddEventEvent.Saved)
+                    }
+                    .onFailure { error ->
+                        _events.send(
+                            AddEventEvent.ShowMessage(
+                                error.message ?: "Gagal menyimpan acara."
+                            )
+                        )
+                    }
+            } catch (e: Exception) {
+                _events.send(
+                    AddEventEvent.ShowMessage(
+                        e.message ?: "Terjadi kesalahan saat menyimpan acara."
+                    )
+                )
+            } finally {
+                _uiState.update {
+                    it.copy(isSaving = false)
                 }
-                .onFailure { _events.send(AddEventEvent.ShowMessage(it.message ?: "Gagal menyimpan.")) }
-            _uiState.update { it.copy(isSaving = false) }
+            }
         }
     }
 
     private fun updateLabels() {
-        val s = _uiState.value
+        val state = _uiState.value
+
         _uiState.update {
-            it.copy(startLabel = formatLabel(s.startMillis), endLabel = formatLabel(s.endMillis))
+            it.copy(
+                startLabel = formatLabel(state.startMillis),
+                endLabel = formatLabel(state.endMillis)
+            )
         }
     }
 
     private fun formatLabel(millis: Long): String {
-        val d = java.util.Date(millis)
-        return "${DateFormatters.formatMediumDate(d)} ${DateFormatters.formatTime(d)}"
+        val date = Date(millis)
+
+        return "${DateFormatters.formatMediumDate(date)} " +
+                DateFormatters.formatTime(date)
     }
 }

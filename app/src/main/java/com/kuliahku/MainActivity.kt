@@ -62,10 +62,32 @@ class MainActivity : ComponentActivity() {
         val initialDeepLink: String? = intent?.data?.toString()
 
         setContent {
-            KuliahkuTheme {
+            val themeMode by appPreferences.themeMode.collectAsState(initial = "system")
+            val themeColorHex by appPreferences.themeColor.collectAsState(initial = "#0080FF")
+            val fontSize by appPreferences.fontSize.collectAsState(initial = "medium")
+            val uiStyle by appPreferences.uiStyle.collectAsState(initial = "soft")
+            val appLanguage by appPreferences.appLanguage.collectAsState(initial = "id")
+
+            // Locale handling
+            val context = androidx.compose.ui.platform.LocalContext.current
+            LaunchedEffect(appLanguage) {
+                val locale = java.util.Locale(appLanguage)
+                java.util.Locale.setDefault(locale)
+                val config = context.resources.configuration
+                config.setLocale(locale)
+                context.createConfigurationContext(config)
+                // Catatan: Untuk penggantian bahasa yang sempurna biasanya butuh recreate activity, 
+                // tapi ini dasar untuk compose agar komponen merespon.
+            }
+
+            KuliahkuTheme(
+                themeMode = themeMode,
+                primaryColorHex = themeColorHex,
+                fontSizeMode = fontSize,
+                uiStyle = uiStyle
+            ) {
                 var startDestination by remember { mutableStateOf<String?>(null) }
                 var showNotifAccessDialog by remember { mutableStateOf(false) }
-                val context = androidx.compose.ui.platform.LocalContext.current
                 
                 LaunchedEffect(Unit) {
                     // Cek apakah listener notifikasi sudah aktif

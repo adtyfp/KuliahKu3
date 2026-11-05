@@ -49,6 +49,21 @@ class TransactionRepository @Inject constructor(
     fun observeByYear(yearKey: String): Flow<List<Transaction>> =
         observeAll().map { list -> list.filter { it.yearKey == yearKey } }
 
+    /** Ambil transaksi bulan ini secara efisien via query Firestore. */
+    suspend fun getTransactionsByMonth(monthKey: String): List<Transaction> {
+        val uid = auth.currentUser?.uid ?: return emptyList()
+        return try {
+            col(uid)
+                .whereEqualTo("monthKey", monthKey)
+                .get()
+                .await()
+                .toObjects(Transaction::class.java)
+        } catch (e: Exception) {
+            android.util.Log.e("TransactionRepository", "Error getTransactionsByMonth: ${e.message}")
+            emptyList()
+        }
+    }
+
     suspend fun upsert(tx: Transaction): Result<String> = runCatching {
         val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
         val id = tx.id.ifBlank { col(uid).document().id }

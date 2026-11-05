@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.kuliahku.data.model.TaskStatus
 import com.kuliahku.ui.components.PrimaryPillButton
+import com.kuliahku.ui.theme.cardShadow
 import com.kuliahku.util.DateFormatters
 
 @Composable
@@ -86,8 +87,9 @@ fun SubmitTaskScreen(
             Surface(
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .cardShadow(shapeRadius = 16.dp)
             ) {
                 Column(
                     Modifier.padding(20.dp).fillMaxWidth(),
@@ -170,8 +172,9 @@ private fun ReadOnlyField(label: String, value: String) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .cardShadow(shapeRadius = 28.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))

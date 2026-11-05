@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,13 +42,11 @@ class UserRepository @Inject constructor(
     // =====================================================
 
     fun observeUser(uid: String): Flow<User?> = callbackFlow {
-
         val ref = firestore
             .collection(Constants.COLLECTION_USERS)
             .document(uid)
 
         val listener = ref.addSnapshotListener { snapshot, error ->
-
             if (error != null) {
                 Log.e(TAG, "Error observing user: ${error.message}", error)
                 trySend(null)
@@ -68,7 +67,6 @@ class UserRepository @Inject constructor(
 
     suspend fun getUser(uid: String): User? =
         withContext(Dispatchers.IO) {
-
             try {
                 firestore
                     .collection(Constants.COLLECTION_USERS)
@@ -78,13 +76,7 @@ class UserRepository @Inject constructor(
                     .toObject(User::class.java)
 
             } catch (e: Exception) {
-
-                Log.e(
-                    TAG,
-                    "Error getting user: ${e.message}",
-                    e
-                )
-
+                Log.e(TAG, "Error getting user: ${e.message}", e)
                 null
             }
         }
@@ -99,63 +91,58 @@ class UserRepository @Inject constructor(
         nim: String?,
         prodi: String?,
         email: String?,
-        semester: Int?
+        semester: Int?,
+        photoUrl: String? = null
     ): Result<Unit> = withContext(Dispatchers.IO) {
 
         runCatching {
-
             require(uid.isNotBlank()) {
                 "UID pengguna tidak boleh kosong"
             }
 
             Log.d(TAG, "Updating profile for UID: $uid")
 
-            // Periksa perubahan NIM
-            if (!nim.isNullOrBlank()) {
+            val userRef = firestore
+                .collection(Constants.COLLECTION_USERS)
+                .document(uid)
 
-                val userDoc = firestore
-                    .collection(Constants.COLLECTION_USERS)
-                    .document(uid)
+            // Ambil data pengguna saat ini
+            val userDoc = userRef.get().await()
+            val oldNim = userDoc.getString("nim")
+
+            // Periksa perubahan NIM
+            if (!nim.isNullOrBlank() && oldNim != nim) {
+
+                val nimDoc = firestore
+                    .collection(Constants.COLLECTION_NIM_INDEX)
+                    .document(nim)
                     .get()
                     .await()
 
-                val oldNim = userDoc.getString("nim")
+                if (nimDoc.exists()) {
+                    throw Exception(
+                        "NIM $nim sudah terdaftar oleh pengguna lain."
+                    )
+                }
 
-                if (oldNim != nim) {
+                val currentEmail =
+                    email ?: userDoc.getString("email") ?: ""
 
-                    val nimDoc = firestore
-                        .collection(Constants.COLLECTION_NIM_INDEX)
-                        .document(nim)
-                        .get()
-                        .await()
-
-                    if (nimDoc.exists()) {
-                        throw Exception(
-                            "NIM $nim sudah terdaftar oleh pengguna lain."
-                        )
-                    }
-
-                    val currentEmail =
-                        email ?: userDoc.getString("email") ?: ""
-
-                    // Hapus index NIM lama
-                    if (!oldNim.isNullOrBlank()) {
-                        firestore
-                            .collection(Constants.COLLECTION_NIM_INDEX)
-                            .document(oldNim)
-                            .delete()
-                            .await()
-                    }
-
-                    // Simpan index NIM baru
+                // Hapus index NIM lama
+                if (!oldNim.isNullOrBlank()) {
                     firestore
                         .collection(Constants.COLLECTION_NIM_INDEX)
-                        .document(nim)
-                        .set(
-                            mapOf("email" to currentEmail)
-                        )
+                        .document(oldNim)
+                        .delete()
                         .await()
                 }
+
+                // Simpan index NIM baru
+                firestore
+                    .collection(Constants.COLLECTION_NIM_INDEX)
+                    .document(nim)
+                    .set(mapOf("email" to currentEmail))
+                    .await()
             }
 
             // Data profil yang akan diperbarui
@@ -181,21 +168,21 @@ class UserRepository @Inject constructor(
                 updates["semester"] = it
             }
 
+            // Simpan URL foto baru jika tersedia
+            photoUrl?.let {
+                updates["photoUrl"] = it
+            }
+
             updates["updatedAt"] = FieldValue.serverTimestamp()
 
             // Simpan perubahan ke Firestore
-            firestore
-                .collection(Constants.COLLECTION_USERS)
-                .document(uid)
-                .set(updates, SetOptions.merge())
-                .await()
+            userRef.set(updates, SetOptions.merge()).await()
 
             Log.d(TAG, "Profile updated successfully")
+            Log.d(TAG, "Photo URL: ${photoUrl ?: "Tidak ada perubahan"}")
 
             Unit
-
         }.onFailure { error ->
-
             Log.e(
                 TAG,
                 "Failed to update profile: ${error.message}",
@@ -216,8 +203,6 @@ class UserRepository @Inject constructor(
         var tempFile: File? = null
 
         try {
-
-            // Validasi input
             require(uid.isNotBlank()) {
                 "UID pengguna tidak boleh kosong"
             }
@@ -240,19 +225,34 @@ class UserRepository @Inject constructor(
                 "R2_PUBLIC_URL belum dikonfigurasi"
             }
 
-            // Ambil path penyimpanan avatar
-            val path = Constants.STORAGE_PROFILE_PATH
+            // Path dasar dari Constants
+            val basePath = Constants.STORAGE_PROFILE_PATH
                 .format(uid)
                 .removePrefix("/")
 
-            require(path.isNotBlank()) {
+            require(basePath.isNotBlank()) {
                 "Path avatar tidak valid"
+            }
+
+            // Buat nama file unik setiap upload.
+            // Tujuannya agar URL berubah dan cache foto lama tidak digunakan.
+            val uniqueId = UUID.randomUUID().toString()
+
+            val dotIndex = basePath.lastIndexOf('.')
+            val slashIndex = basePath.lastIndexOf('/')
+
+            val objectKey = if (dotIndex > slashIndex) {
+                basePath.substring(0, dotIndex) +
+                        "_$uniqueId" +
+                        basePath.substring(dotIndex)
+            } else {
+                "${basePath}_$uniqueId.jpg"
             }
 
             Log.d(R2_TAG, "================================")
             Log.d(R2_TAG, "MEMULAI UPLOAD AVATAR")
             Log.d(R2_TAG, "Bucket: $bucket")
-            Log.d(R2_TAG, "Object Key: $path")
+            Log.d(R2_TAG, "Object Key: $objectKey")
             Log.d(R2_TAG, "Ukuran gambar: ${bytes.size} bytes")
 
             // Buat file sementara
@@ -262,7 +262,6 @@ class UserRepository @Inject constructor(
                 context.cacheDir
             )
 
-            // Simpan byte gambar ke file
             tempFile.writeBytes(bytes)
 
             require(tempFile.exists() && tempFile.length() > 0) {
@@ -274,50 +273,34 @@ class UserRepository @Inject constructor(
                 contentType = "image/jpeg"
                 contentLength = tempFile.length()
                 contentDisposition = "inline"
+
+                // URL menggunakan object key unik,
+                // sehingga cache foto sebelumnya tidak digunakan.
                 cacheControl = "public, max-age=86400"
             }
 
-            // Buat request upload berbasis File
+            // Request upload
             val request = PutObjectRequest(
                 bucket,
-                path,
+                objectKey,
                 tempFile
             ).withMetadata(metadata)
 
-            Log.d(R2_TAG, "File sementara berhasil dibuat")
             Log.d(R2_TAG, "Mengirim file ke Cloudflare R2...")
 
-            // Upload file ke Cloudflare R2
+            // Upload ke R2
             val uploadResult = s3Client.putObject(request)
 
             Log.i(R2_TAG, "UPLOAD R2 BERHASIL")
             Log.i(R2_TAG, "ETag: ${uploadResult.eTag}")
 
-            // Buat URL publik avatar
-            val photoUrl = "$publicUrl/$path"
+            // Buat URL publik dengan object key baru
+            val photoUrl = "$publicUrl/$objectKey"
 
-            Log.d(R2_TAG, "Public URL berhasil dibuat")
-
-            // Simpan URL foto ke Firestore
-            firestore
-                .collection(Constants.COLLECTION_USERS)
-                .document(uid)
-                .set(
-                    mapOf(
-                        "photoUrl" to photoUrl,
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    ),
-                    SetOptions.merge()
-                )
-                .await()
-
-            Log.i(
-                R2_TAG,
-                "URL avatar berhasil disimpan ke Firestore"
-            )
-
+            Log.i(R2_TAG, "URL foto baru: $photoUrl")
             Log.d(R2_TAG, "================================")
 
+            // Kembalikan URL agar disimpan melalui updateProfile()
             Result.success(photoUrl)
 
         } catch (e: Exception) {
@@ -329,37 +312,19 @@ class UserRepository @Inject constructor(
             )
 
             if (e is AmazonS3Exception) {
-
-                Log.e(
-                    R2_TAG,
-                    "HTTP Status: ${e.statusCode}"
-                )
-
-                Log.e(
-                    R2_TAG,
-                    "Error Code: ${e.errorCode}"
-                )
-
-                Log.e(
-                    R2_TAG,
-                    "Error Message: ${e.errorMessage}"
-                )
+                Log.e(R2_TAG, "HTTP Status: ${e.statusCode}")
+                Log.e(R2_TAG, "Error Code: ${e.errorCode}")
+                Log.e(R2_TAG, "Error Message: ${e.errorMessage}")
             }
 
             Result.failure(e)
 
         } finally {
-
             // Hapus file sementara
             tempFile?.let { file ->
-
                 if (file.exists()) {
                     val deleted = file.delete()
-
-                    Log.d(
-                        R2_TAG,
-                        "Temporary file deleted: $deleted"
-                    )
+                    Log.d(R2_TAG, "Temporary file deleted: $deleted")
                 }
             }
         }
@@ -375,7 +340,6 @@ class UserRepository @Inject constructor(
     ): Result<Unit> = withContext(Dispatchers.IO) {
 
         runCatching {
-
             firestore
                 .collection(Constants.COLLECTION_USERS)
                 .document(uid)

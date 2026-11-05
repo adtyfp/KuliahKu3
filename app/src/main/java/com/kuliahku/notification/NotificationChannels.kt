@@ -1,5 +1,7 @@
+
 package com.kuliahku.notification
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -9,61 +11,98 @@ import android.os.Build
 import androidx.core.content.getSystemService
 
 object NotificationChannels {
+
     const val DEADLINE = "deadline_channel"
     const val AGENDA = "agenda_channel"
     const val FINANCE = "finance_channel"
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = context.getSystemService<NotificationManager>() ?: return
 
-        val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        val manager =
+            context.getSystemService<NotificationManager>() ?: return
 
+        val defaultSound = RingtoneManager.getDefaultUri(
+            RingtoneManager.TYPE_NOTIFICATION
+        )
+
+        val alarmSound = RingtoneManager.getDefaultUri(
+            RingtoneManager.TYPE_ALARM
+        )
+
+        val notificationAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        val alarmAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        // Channel deadline tugas.
         val deadline = NotificationChannel(
-            DEADLINE, "Deadline Tugas",
+            DEADLINE,
+            "Deadline Tugas",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Pengingat deadline tugas"
             enableVibration(true)
-            setSound(defaultSound, AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
+            setSound(defaultSound, notificationAttributes)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
 
+        // Channel agenda dan spanduk.
         val agenda = NotificationChannel(
-            AGENDA, "Agenda & Acara",
+            AGENDA,
+            "Agenda & Acara",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Pengingat acara, pengingat, dan target"
             enableVibration(true)
-            setSound(defaultSound, AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
+            setSound(defaultSound, notificationAttributes)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
 
+        // Channel keuangan.
         val finance = NotificationChannel(
-            FINANCE, "Keuangan",
-            NotificationManager.IMPORTANCE_DEFAULT
+            FINANCE,
+            "Keuangan",
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Notifikasi transaksi keuangan otomatis"
             enableVibration(true)
-            setSound(defaultSound, AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
+            setSound(defaultSound, notificationAttributes)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
 
-        manager.createNotificationChannels(listOf(deadline, agenda, finance))
-
-        // Channel khusus alarm (importance max + suara alarm)
+        // Channel alarm khusus.
         val alarm = NotificationChannel(
-            "$AGENDA.alarm", "Alarm Agenda",
-            NotificationManager.IMPORTANCE_MAX
+            "$AGENDA.alarm",
+            "Alarm Agenda",
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Alarm untuk acara penting"
             enableVibration(true)
-            vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
-            setSound(alarmSound, AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM).build())
-            setBypassDnd(true)
+            vibrationPattern = longArrayOf(
+                0,
+                500,
+                200,
+                500,
+                200,
+                500
+            )
+            setSound(alarmSound, alarmAttributes)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
-        manager.createNotificationChannel(alarm)
+
+        manager.createNotificationChannels(
+            listOf(
+                deadline,
+                agenda,
+                finance,
+                alarm
+            )
+        )
     }
 }

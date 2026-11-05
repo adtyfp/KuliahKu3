@@ -24,6 +24,7 @@ import androidx.compose.ui.layout.layout
 import com.kuliahku.R
 import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.KuliahkuLogo
+import com.kuliahku.ui.theme.cardShadow
 
 @Composable
 fun WelcomeScreen(
@@ -104,7 +105,7 @@ fun WelcomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .shadow(8.dp, shape = MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                        .cardShadow(shapeRadius = 28.dp, blurRadius = 25.dp, offsetY = 8.dp)
                         .clickable { onStart() },
                     shape = MaterialTheme.shapes.extraLarge,
                     color = MaterialTheme.colorScheme.surface

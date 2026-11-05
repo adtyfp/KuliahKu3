@@ -18,7 +18,7 @@ import javax.inject.Singleton
 class AiClient @Inject constructor() {
 
     companion object {
-        const val MODEL_NAME = "gemini-3.5-flash-lite"
+        const val MODEL_NAME = "gemini-3.1-flash-lite"
         const val LABEL_AI = "Dibuat oleh Gemini AI"
 
         private const val BASE_URL =

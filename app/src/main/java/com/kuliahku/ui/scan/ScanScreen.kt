@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -27,14 +28,18 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.kuliahku.data.model.Material
+import com.kuliahku.data.model.MaterialSourceType
 import com.kuliahku.notification.NotificationChannels
 import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.KuliahkuContentDialog
 import com.kuliahku.ui.theme.*
+import com.kuliahku.ui.theme.cardShadow
 import com.kuliahku.util.DocumentExtractor
 import com.kuliahku.util.WebExtractor
 import kotlinx.coroutines.launch
@@ -54,7 +59,7 @@ private class ScanPalette(
     val headerSubtitle: Color,
     val cardSubtitle: Color,
     val arrow: Color,
-    val shadowAlpha: Float,
+    val accent: Color,
     val upload: ScanTone,
     val youtube: ScanTone,
     val audio: ScanTone
@@ -68,7 +73,7 @@ private val ScanLight = ScanPalette(
     headerSubtitle = Color(0xFF7D7D7D),
     cardSubtitle = Color(0xFF464646),
     arrow = Color(0xFF6E6E6E),
-    shadowAlpha = 0.10f,
+    accent = Color(0xFF0F79DC),
     upload = ScanTone(Color(0xFFD6E0FC), Color(0xFF0000FF), Color(0xFF0000FF)),
     youtube = ScanTone(Color(0xFFFFCDCD), Color(0xFFFF0000), Color(0xFFFF0000)),
     audio = ScanTone(Color(0xFFC8F5C8), Color(0xFF1BA81B), Color(0xFF12A012))
@@ -82,7 +87,7 @@ private val ScanDark = ScanPalette(
     headerSubtitle = Color(0xFF9AA3BF),
     cardSubtitle = Color(0xFFA3ABC4),
     arrow = Color(0xFF8B93AE),
-    shadowAlpha = 0.45f,
+    accent = Color(0xFF3B6FE8),
     upload = ScanTone(Color(0xFF1C2755), Color(0xFF4C6FFF), Color(0xFF8FA8FF)),
     youtube = ScanTone(Color(0xFF3D1A20), Color(0xFFFF5C6C), Color(0xFFFF8A95)),
     audio = ScanTone(Color(0xFF11351F), Color(0xFF34C759), Color(0xFF6EE79A))
@@ -109,6 +114,7 @@ fun ScanScreen(
     var showWebDialog by remember { mutableStateOf(false) }
     var showAudioSheet by remember { mutableStateOf(false) }
     var showSourceSheet by remember { mutableStateOf(false) }
+    var showHistorySheet by remember { mutableStateOf(false) }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -116,7 +122,7 @@ fun ScanScreen(
             scope.launch {
                 val res = DocumentExtractor.extract(context, it, mime)
                 res.onSuccess { text ->
-                    viewModel.createFromText("Materi ${mime.substringAfterLast('/').uppercase()}", text)
+                    viewModel.createFromText("Materi ${mime.substringAfterLast('/').uppercase()}", text, MaterialSourceType.FILE)
                 }.onFailure { e ->
                     snackbar.showSnackbar(e.message ?: "Gagal ekstraksi file.")
                 }
@@ -166,24 +172,45 @@ fun ScanScreen(
 
             // ---------------- Header ----------------
             AnimatedEntry(delay = 100) {
-                Column {
-                    Text(
-                        "Scanning Materi",
-                        modifier = Modifier.padding(start = 4.dp),
-                        fontSize = 31.sp,
-                        lineHeight = 44.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = p.textPrimary
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        "Pindai materi dosen kamu di sini untuk dijadikan\ncatatan",
-                        modifier = Modifier.padding(start = 4.dp),
-                        fontSize = 12.sp,
-                        lineHeight = 19.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = p.headerSubtitle
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Scanning Materi",
+                            modifier = Modifier.padding(start = 4.dp),
+                            fontSize = 31.sp,
+                            lineHeight = 44.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = p.textPrimary
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            "Pindai materi dosen kamu di sini untuk dijadikan\ncatatan",
+                            modifier = Modifier.padding(start = 4.dp),
+                            fontSize = 12.sp,
+                            lineHeight = 19.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = p.headerSubtitle
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showHistorySheet = true },
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .size(48.dp)
+                            .background(p.surface, CircleShape)
+                            .border(1.dp, p.border, CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Default.History,
+                            contentDescription = "Riwayat",
+                            tint = p.accent
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(17.dp))
@@ -239,7 +266,7 @@ fun ScanScreen(
                     title = "Pilih File",
                     subtitle = "PDF, DOCX, PPTX",
                     icon = Icons.Filled.UploadFile,
-                    p = p,
+                    tone = p.upload,
                     onClick = {
                         showSourceSheet = false
                         filePicker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation"))
@@ -249,7 +276,7 @@ fun ScanScreen(
                     title = "Tempel Teks",
                     subtitle = "Salin teks dari sumber lain",
                     icon = Icons.Filled.ContentPaste,
-                    p = p,
+                    tone = p.upload,
                     onClick = {
                         showSourceSheet = false
                         showTextDialog = true
@@ -259,7 +286,7 @@ fun ScanScreen(
                     title = "Ambil Foto (OCR)",
                     subtitle = "Pindai teks dari buku/kertas",
                     icon = Icons.Filled.PhotoCamera,
-                    p = p,
+                    tone = p.upload,
                     onClick = {
                         showSourceSheet = false
                         scope.launch {
@@ -318,7 +345,7 @@ fun ScanScreen(
                     title = "Rekam Sekarang",
                     subtitle = "Maksimal 15 menit",
                     icon = Icons.Filled.Mic,
-                    p = p,
+                    tone = p.audio,
                     onClick = {
                         showAudioSheet = false
                         navController.navigate("record_audio")
@@ -328,7 +355,7 @@ fun ScanScreen(
                     title = "Unggah File Audio",
                     subtitle = "MP3, M4A, WAV, maks 50 MB",
                     icon = Icons.Filled.AudioFile,
-                    p = p,
+                    tone = p.audio,
                     onClick = {
                         showAudioSheet = false
                         audioPicker.launch(arrayOf("audio/*"))
@@ -338,6 +365,129 @@ fun ScanScreen(
             }
         }
     }
+
+    if (showHistorySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showHistorySheet = false },
+            containerColor = p.background
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    "Riwayat Scanning",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = p.textPrimary
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Daftar materi yang pernah kamu pindai sebelumnya.",
+                    fontSize = 13.sp,
+                    color = p.headerSubtitle
+                )
+                Spacer(Modifier.height(20.dp))
+
+                if (state.history.isEmpty()) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Belum ada riwayat.", color = p.cardSubtitle)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        state.history.forEach { material ->
+                            HistoryItem(
+                                material = material,
+                                p = p,
+                                onClick = {
+                                    showHistorySheet = false
+                                    navController.navigate("material_result/${material.id}")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryItem(
+    material: Material,
+    p: ScanPalette,
+    onClick: () -> Unit
+) {
+    val dateStr = remember(material.createdAt) {
+        material.createdAt?.toDate()?.let {
+            java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(it)
+        } ?: "-"
+    }
+
+    val (icon, tone) = when (material.sourceTypeEnum) {
+        MaterialSourceType.YOUTUBE -> Icons.Default.PlayCircle to p.youtube
+        MaterialSourceType.AUDIO -> Icons.Default.Mic to p.audio
+        MaterialSourceType.WEB -> Icons.Default.Language to p.upload
+        MaterialSourceType.PHOTO -> Icons.Default.PhotoCamera to p.upload
+        MaterialSourceType.TEXT -> Icons.Default.Notes to p.upload
+        else -> Icons.Default.Description to p.upload
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        color = p.surface,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, p.border.copy(alpha = 0.5f))
+    ) {
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .background(tone.container.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = tone.icon, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    material.title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = p.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    dateStr,
+                    fontSize = 12.sp,
+                    color = p.cardSubtitle
+                )
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                null,
+                tint = p.arrow,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
 }
 
 @Composable
@@ -345,15 +495,16 @@ private fun ModernSelectionCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    p: ScanPalette,
+    tone: ScanTone,
     onClick: () -> Unit
 ) {
+    val p = scanPalette()
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .height(84.dp)
-            .shadow(4.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.05f), spotColor = Color.Black.copy(alpha = 0.05f))
+            .cardShadow(shapeRadius = 20.dp)
             .clip(RoundedCornerShape(20.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
@@ -367,10 +518,10 @@ private fun ModernSelectionCard(
             Box(
                 Modifier
                     .size(44.dp)
-                    .background(p.upload.container.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                    .background(tone.container.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, null, tint = p.upload.icon, modifier = Modifier.size(22.dp))
+                Icon(icon, null, tint = tone.icon, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
@@ -407,14 +558,12 @@ private fun ScanCard(
     val p = scanPalette()
     val cardShape = RoundedCornerShape(30.dp)
     val iconShape = RoundedCornerShape(12.dp)
-    val shadowColor = Color.Black.copy(alpha = p.shadowAlpha)
-    val glow = tone.border.copy(alpha = if (p.shadowAlpha > 0.2f) 0.30f else 0.40f)
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .height(179.dp)
-            .shadow(8.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor)
+            .cardShadow(shapeRadius = 30.dp)
             .clip(cardShape)
             .clickable(onClick = onClick),
         shape = cardShape,
@@ -426,7 +575,6 @@ private fun ScanCard(
                 Box(
                     modifier = Modifier
                         .size(39.dp)
-                        .shadow(6.dp, iconShape, ambientColor = glow, spotColor = glow)
                         .clip(iconShape)
                         .background(tone.container)
                         .border(1.dp, tone.border, iconShape),

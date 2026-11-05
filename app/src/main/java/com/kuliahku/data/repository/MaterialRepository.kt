@@ -29,17 +29,42 @@ class MaterialRepository @Inject constructor(
         firestore.collection(Constants.COLLECTION_USERS).document(uid).collection("materials")
 
     fun observeAll(): Flow<List<Material>> = callbackFlow {
-        val uid = auth.currentUser?.uid ?: run { trySend(emptyList()); close(); return@callbackFlow }
-        val listener = col(uid)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .addSnapshotListener { snap, err ->
-                if (err != null) { 
-                    android.util.Log.e("MaterialRepository", "Error observing materials: ${err.message}")
-                    trySend(emptyList())
-                    return@addSnapshotListener 
-                }
-                trySend(snap?.documents?.mapNotNull { it.toObject(Material::class.java) } ?: emptyList())
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            android.util.Log.w("MaterialRepository", "observeAll: No user logged in")
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
+        android.util.Log.d("MaterialRepository", "Starting observeAll for UID: $uid")
+        
+        val query = col(uid)
+        // Kita gunakan query sederhana tanpa orderBy untuk memastikan data bisa ditarik
+        val listener = query.addSnapshotListener { snap, err ->
+            if (err != null) { 
+                android.util.Log.e("MaterialRepository", "SNAPSHOT ERROR [$uid]: ${err.code} - ${err.message}", err)
+                trySend(emptyList())
+                return@addSnapshotListener 
             }
+            
+            if (snap == null || snap.isEmpty) {
+                android.util.Log.d("MaterialRepository", "Snapshot is empty for UID: $uid")
+                trySend(emptyList())
+                return@addSnapshotListener
+            }
+
+            val materials = snap.documents.mapNotNull { doc ->
+                try {
+                    doc.toObject(Material::class.java)?.copy(id = doc.id)
+                } catch (e: Exception) {
+                    android.util.Log.e("MaterialRepository", "Parse error doc ${doc.id}: ${e.message}")
+                    null
+                }
+            }
+            android.util.Log.d("MaterialRepository", "Successfully fetched ${materials.size} materials for $uid")
+            trySend(materials)
+        }
         awaitClose { listener.remove() }
     }
 
@@ -59,8 +84,10 @@ class MaterialRepository @Inject constructor(
 
     suspend fun create(material: Material): Result<String> = runCatching {
         val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
+        android.util.Log.d("MaterialRepository", "Mencoba menyimpan materi ke Firestore untuk UID: $uid")
+        
         val id = material.id.ifBlank { col(uid).document().id }
-        val data = mapOf(
+        val data = mutableMapOf<String, Any?>(
             "title" to material.title,
             "sourceType" to material.sourceType,
             "sourceRef" to material.sourceRef,
@@ -69,8 +96,15 @@ class MaterialRepository @Inject constructor(
             "createdAt" to (material.createdAt ?: FieldValue.serverTimestamp()),
             "updatedAt" to FieldValue.serverTimestamp()
         )
+        if (material.chatHistory.isNotEmpty()) {
+            data["chatHistory"] = material.chatHistory
+        }
+        
         col(uid).document(id).set(data, SetOptions.merge()).await()
+        android.util.Log.d("MaterialRepository", "Berhasil menyimpan materi dengan ID: $id ke database")
         id
+    }.onFailure { e ->
+        android.util.Log.e("MaterialRepository", "GAGAL menyimpan materi ke database: ${e.message}", e)
     }
 
     suspend fun updateSummary(id: String, summary: String): Result<Unit> = runCatching {
@@ -78,6 +112,15 @@ class MaterialRepository @Inject constructor(
         col(uid).document(id).set(
             mapOf("summary" to summary, "updatedAt" to FieldValue.serverTimestamp()),
             SetOptions.merge()
+        ).await()
+        Unit
+    }
+
+    suspend fun saveChatMessage(materialId: String, message: com.kuliahku.data.model.ChatMessage): Result<Unit> = runCatching {
+        val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
+        col(uid).document(materialId).update(
+            "chatHistory", FieldValue.arrayUnion(message),
+            "updatedAt", FieldValue.serverTimestamp()
         ).await()
         Unit
     }

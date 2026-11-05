@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.kuliahku.ui.theme.cardShadow
 
 @Composable
 fun StatCard(
@@ -21,10 +22,12 @@ fun StatCard(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.cardShadow(
+            shapeRadius = 20.dp
+        ),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

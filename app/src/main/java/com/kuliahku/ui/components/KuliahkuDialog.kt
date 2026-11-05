@@ -1,6 +1,7 @@
 package com.kuliahku.ui.components
 
 import androidx.compose.foundation.background
+import com.kuliahku.ui.theme.cardShadow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -37,12 +38,13 @@ fun KuliahkuDialog(
     ) {
         Surface(
             modifier = Modifier
+                .cardShadow(shapeRadius = 24.dp)
                 .fillMaxWidth()
                 .wrapContentHeight()
                 .padding(16.dp),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
@@ -150,12 +152,13 @@ fun KuliahkuContentDialog(
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
             modifier = Modifier
+                .cardShadow(shapeRadius = 24.dp)
                 .fillMaxWidth()
                 .wrapContentHeight()
                 .padding(16.dp),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
@@ -234,12 +237,13 @@ fun KuliahkuActionDialog(
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
             modifier = Modifier
+                .cardShadow(shapeRadius = 24.dp)
                 .fillMaxWidth()
                 .wrapContentHeight()
                 .padding(16.dp),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier

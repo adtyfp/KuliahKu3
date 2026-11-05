@@ -17,7 +17,14 @@ data class SettingsUiState(
     val isChanging: Boolean = false,
     val isDeleting: Boolean = false,
     val showDeleteDialog: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    
+    // UI Prefs
+    val themeMode: String = "system",
+    val themeColor: String = "#0080FF",
+    val fontSize: String = "medium",
+    val uiStyle: String = "soft",
+    val appLanguage: String = "id"
 )
 
 @HiltViewModel
@@ -27,6 +34,32 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            combine(
+                appPreferences.themeMode,
+                appPreferences.themeColor,
+                appPreferences.fontSize,
+                appPreferences.uiStyle,
+                appPreferences.appLanguage
+            ) { mode, color, size, style, lang ->
+                _uiState.update { it.copy(
+                    themeMode = mode,
+                    themeColor = color,
+                    fontSize = size,
+                    uiStyle = style,
+                    appLanguage = lang
+                ) }
+            }.collect()
+        }
+    }
+
+    fun onThemeModeChange(v: String) { viewModelScope.launch { appPreferences.setThemeMode(v) } }
+    fun onThemeColorChange(v: String) { viewModelScope.launch { appPreferences.setThemeColor(v) } }
+    fun onFontSizeChange(v: String) { viewModelScope.launch { appPreferences.setFontSize(v) } }
+    fun onUiStyleChange(v: String) { viewModelScope.launch { appPreferences.setUiStyle(v) } }
+    fun onLanguageChange(v: String) { viewModelScope.launch { appPreferences.setLanguage(v) } }
 
     fun onCurrentPasswordChange(v: String) { _uiState.update { it.copy(currentPassword = v) } }
     fun onNewPasswordChange(v: String) { _uiState.update { it.copy(newPassword = v) } }

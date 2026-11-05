@@ -102,7 +102,12 @@ class HomeViewModel @Inject constructor(
     private fun observeAllTasks() {
         viewModelScope.launch {
             taskRepo.observeAllTasks().collect { list ->
-                _uiState.update { it.copy(tasks = list) }
+                val sortedTasks = list.sortedWith(
+                    compareBy<Task> { it.statusEnum == TaskStatus.DONE }
+                        .thenBy { it.priorityEnum }
+                        .thenBy { it.deadline?.seconds ?: Long.MAX_VALUE }
+                )
+                _uiState.update { it.copy(tasks = sortedTasks) }
             }
         }
     }

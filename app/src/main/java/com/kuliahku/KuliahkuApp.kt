@@ -18,6 +18,9 @@ class KuliahkuApp : Application() {
         
         // Initialize Firebase before App Check
         FirebaseApp.initializeApp(this)
+        
+        // Ensure notification channels are created
+        com.kuliahku.notification.NotificationChannels.ensureChannels(this)
 
         val appCheck = FirebaseAppCheck.getInstance()
         

@@ -12,5 +12,5 @@ object Constants {
     const val PASSWORD_MIN_LENGTH = 8
     const val SEMESTER_MIN = 1
     const val SEMESTER_MAX = 14
-    const val NETWORK_TIMEOUT = 10000L // 10 detik
+    const val NETWORK_TIMEOUT = 30000L // 30 detik
 }

@@ -4,9 +4,11 @@ package com.kuliahku.ui.scan
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.kuliahku.ai.AiRepository
 import com.kuliahku.ai.AiResult
+import com.kuliahku.data.model.ChatMessage
 import com.kuliahku.data.model.Flashcard
 import com.kuliahku.data.model.JournalReference
 import com.kuliahku.data.model.Material
@@ -39,7 +41,7 @@ data class ResultUiState(
     val quizAnswers: Map<Int, Int> = emptyMap(),
     val quizSubmitted: Boolean = false,
     val quizScore: Int = 0,
-    val chatMessages: List<Pair<String, String>> = emptyList(),
+    val chatMessages: List<ChatMessage> = emptyList(),
     val chatInput: String = "",
     val suggestedReferences: List<JournalReference> = emptyList(),
     val tab: ResultTab = ResultTab.SUMMARY
@@ -96,6 +98,7 @@ class MaterialResultViewModel @Inject constructor(
                             it.copy(
                                 material = material,
                                 summary = material?.summary,
+                                chatMessages = material?.chatHistory ?: emptyList(),
                                 isLoading = false,
                                 error = if (material == null) {
                                     "Materi tidak ditemukan."
@@ -331,33 +334,49 @@ class MaterialResultViewModel @Inject constructor(
 
     fun sendChat() {
         val state = _uiState.value
-        val question = state.chatInput.trim()
+        val questionText = state.chatInput.trim()
         val text = state.material?.extractedText
 
-        if (question.isBlank()) return
+        if (questionText.isBlank()) return
 
         if (text.isNullOrBlank()) {
             showMessage("Teks materi belum tersedia untuk chat AI.")
             return
         }
 
+        val userMessage = ChatMessage(
+            role = "user",
+            content = questionText,
+            timestamp = Timestamp.now()
+        )
+
         _uiState.update {
             it.copy(
                 chatInput = "",
-                chatMessages = it.chatMessages + ("user" to question)
+                chatMessages = it.chatMessages + userMessage
             )
         }
 
+        viewModelScope.launch {
+            materialRepo.saveChatMessage(state.materialId, userMessage)
+        }
+
         runAi("Menjawab pertanyaan...") {
-            when (val result = ai.ask(text, question)) {
+            when (val result = ai.ask(text, questionText)) {
                 is AiResult.Success -> {
+                    val aiMessage = ChatMessage(
+                        role = "ai",
+                        content = result.data,
+                        timestamp = Timestamp.now()
+                    )
+
                     _uiState.update {
                         it.copy(
-                            chatMessages = it.chatMessages + (
-                                    "ai" to result.data
-                                    )
+                            chatMessages = it.chatMessages + aiMessage
                         )
                     }
+
+                    materialRepo.saveChatMessage(state.materialId, aiMessage)
                 }
 
                 is AiResult.Timeout -> {

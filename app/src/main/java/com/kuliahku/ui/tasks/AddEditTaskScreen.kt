@@ -50,6 +50,7 @@ import com.kuliahku.ui.components.WheelDateTimePicker
 import com.kuliahku.ui.theme.BadgeHighBg
 import com.kuliahku.ui.theme.BadgeLowBg
 import com.kuliahku.ui.theme.BadgeMediumBg
+import com.kuliahku.ui.theme.cardShadow
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PALET
@@ -63,8 +64,7 @@ private class FormPalette(
     val border: Color,
     val textPrimary: Color,
     val placeholder: Color,
-    val button: Color,
-    val shadowAlpha: Float
+    val button: Color
 )
 
 private val LightFormPalette = FormPalette(
@@ -73,8 +73,7 @@ private val LightFormPalette = FormPalette(
     border = Color(0xFFE0E0E0),
     textPrimary = Color.Black,
     placeholder = Color(0xFF808080),
-    button = Color(0xFF0F79DC),
-    shadowAlpha = 0.12f
+    button = Color(0xFF0F79DC)
 )
 
 private val DarkFormPalette = FormPalette(
@@ -83,8 +82,7 @@ private val DarkFormPalette = FormPalette(
     border = Color(0xFF2A3350),
     textPrimary = Color(0xFFF1F4FF),
     placeholder = Color(0xFFA3ABC4),
-    button = Color(0xFF3B6FE8),
-    shadowAlpha = 0.45f
+    button = Color(0xFF3B6FE8)
 )
 
 @Composable
@@ -106,8 +104,13 @@ fun AddEditTaskScreen(
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                AddEditTaskEvent.Saved -> { navController.popBackStack(); snackbar.showSnackbar("Tugas disimpan.") }
-                is AddEditTaskEvent.ShowMessage -> snackbar.showSnackbar(event.message)
+                AddEditTaskEvent.Saved -> {
+                    navController.popBackStack()
+                }
+
+                is AddEditTaskEvent.ShowMessage -> {
+                    snackbar.showSnackbar(event.message)
+                }
             }
         }
     }
@@ -176,6 +179,7 @@ fun AddEditTaskScreen(
                     p = p,
                     height = 51.dp,
                     shape = CircleShape,
+                    shapeRadius = 25.5.dp,
                     singleLine = true
                 )
                 FieldError(state.titleError)
@@ -191,7 +195,7 @@ fun AddEditTaskScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
-                        .formSurface(p, RoundedCornerShape(deadlineCorner))
+                        .formSurface(p, RoundedCornerShape(deadlineCorner), deadlineCorner)
                 ) {
                     Row(
                         modifier = Modifier
@@ -249,7 +253,7 @@ fun AddEditTaskScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
-                        .formSurface(p, RoundedCornerShape(priorityCorner))
+                        .formSurface(p, RoundedCornerShape(priorityCorner), priorityCorner)
                 ) {
                     Row(
                         modifier = Modifier
@@ -333,6 +337,7 @@ fun AddEditTaskScreen(
                     p = p,
                     height = 149.dp,
                     shape = RoundedCornerShape(30.dp),
+                    shapeRadius = 30.dp,
                     singleLine = false
                 )
                 Spacer(Modifier.height(32.dp))
@@ -362,14 +367,10 @@ fun AddEditTaskScreen(
 }
 
 /** Bayangan lembut + latar + border 1 dp, sama untuk semua kolom pada desain. */
-private fun Modifier.formSurface(p: FormPalette, shape: Shape): Modifier =
+@Composable
+private fun Modifier.formSurface(p: FormPalette, shape: Shape, shapeRadius: Dp = 20.dp): Modifier =
     this
-        .shadow(
-            elevation = 6.dp,
-            shape = shape,
-            ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
-            spotColor = Color.Black.copy(alpha = p.shadowAlpha)
-        )
+        .cardShadow(shapeRadius = shapeRadius)
         .background(p.surface, shape)
         .border(1.dp, p.border, shape)
 
@@ -381,13 +382,14 @@ private fun FormField(
     p: FormPalette,
     height: Dp,
     shape: Shape,
+    shapeRadius: Dp = 20.dp,
     singleLine: Boolean
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .formSurface(p, shape)
+            .formSurface(p, shape, shapeRadius)
             .padding(horizontal = 26.dp, vertical = if (singleLine) 0.dp else 20.dp),
         contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart
     ) {

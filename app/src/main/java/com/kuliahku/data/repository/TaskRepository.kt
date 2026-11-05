@@ -151,7 +151,7 @@ class TaskRepository @Inject constructor(
         )
         val saved = task.copy(id = ref.id)
         scheduler.scheduleTaskReminders(saved)
-        ref.set(data).await()
+        ref.set(data) // Tanpa .await() agar respons instan
         ref.id
     }
 
@@ -159,11 +159,15 @@ class TaskRepository @Inject constructor(
         val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
         val map = updates.toMutableMap()
         map["updatedAt"] = FieldValue.serverTimestamp()
-        tasksCollection(uid).document(taskId).set(map, SetOptions.merge()).await()
-        val snap = tasksCollection(uid).document(taskId).get().await()
-        snap.toObject(Task::class.java)?.let { scheduler.scheduleTaskReminders(it) }
+        val docRef = tasksCollection(uid).document(taskId)
+        
+        docRef.set(map, SetOptions.merge()) // Tanpa .await() untuk kecepatan
+        
+        // Update reminder di background tanpa memblokir
+        docRef.get().addOnSuccessListener { snap ->
+            snap.toObject(Task::class.java)?.let { scheduler.scheduleTaskReminders(it) }
+        }
         Unit
-
     }
 
     suspend fun setTaskStatus(taskId: String, done: Boolean): Result<Unit> = runCatching {
@@ -291,9 +295,10 @@ class TaskRepository @Inject constructor(
 
     /**
      * Statistik Beranda: total, akan datang, selesai, terlambat.
+     * Menggunakan observeAllTasks() agar sinkron dengan daftar yang ditampilkan di UI.
      */
     fun observeStats(): Flow<TaskStats> =
-        observeTasksRaw().map { list ->
+        observeAllTasks().map { list ->
             val now = System.currentTimeMillis()
             TaskStats(
                 total = list.size,

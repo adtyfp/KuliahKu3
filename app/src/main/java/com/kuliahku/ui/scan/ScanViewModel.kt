@@ -14,7 +14,8 @@ import javax.inject.Inject
 data class ScanUiState(
     val isProcessing: Boolean = false,
     val error: String? = null,
-    val lastMaterialId: String? = null
+    val lastMaterialId: String? = null,
+    val history: List<Material> = emptyList()
 )
 
 sealed interface ScanEvent {
@@ -32,7 +33,21 @@ class ScanViewModel @Inject constructor(
     private val _events = Channel<ScanEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
-    fun createFromText(title: String, text: String) {
+    init {
+        observeHistory()
+    }
+
+    private fun observeHistory() {
+        android.util.Log.d("ScanViewModel", "Memulai observasi riwayat...")
+        viewModelScope.launch {
+            repo.observeAll().collect { materials ->
+                android.util.Log.d("ScanViewModel", "Menerima ${materials.size} materi dari repo")
+                _uiState.update { it.copy(history = materials) }
+            }
+        }
+    }
+
+    fun createFromText(title: String, text: String, sourceType: MaterialSourceType = MaterialSourceType.TEXT) {
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true, error = null) }
             
@@ -46,7 +61,7 @@ class ScanViewModel @Inject constructor(
 
             val material = Material(
                 title = title.ifBlank { "Materi Teks" },
-                sourceType = MaterialSourceType.TEXT.value,
+                sourceType = sourceType.value,
                 extractedText = text,
                 summary = summary
             )
@@ -131,7 +146,7 @@ class ScanViewModel @Inject constructor(
     }
 
     fun createFromPhoto(ocrText: String) {
-        createFromText("Materi Foto (OCR)", ocrText)
+        createFromText("Materi Foto (OCR)", ocrText, MaterialSourceType.PHOTO)
     }
 
     fun createFromAudio(audioUri: android.net.Uri, context: android.content.Context) {

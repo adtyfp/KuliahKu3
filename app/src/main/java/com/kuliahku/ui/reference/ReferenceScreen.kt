@@ -24,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.kuliahku.ui.theme.cardShadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -72,12 +73,11 @@ private class RefPalette(
     val chipSelected: Color,
     val divider: Color,
     val thumb: Color,
-    val accent: Color,
-    val shadowAlpha: Float
+    val accent: Color
 )
 
 private val RefLight = RefPalette(
-    background = Color(0xFFF8F9FF),
+    background = Color(0xFFFBFCFF),
     surface = Color.White,
     border = Color(0xFFE2E2E8),
     textPrimary = Color.Black,
@@ -93,8 +93,7 @@ private val RefLight = RefPalette(
     chipSelected = Color(0xFF0F79DC),
     divider = Color(0xFFE1E1E8),
     thumb = Color(0xFFDBDBDB),
-    accent = Color(0xFF0F79DC),
-    shadowAlpha = 0.10f
+    accent = Color(0xFF0F79DC)
 )
 
 private val RefDark = RefPalette(
@@ -114,8 +113,7 @@ private val RefDark = RefPalette(
     chipSelected = Color(0xFF0F79DC),
     divider = Color(0xFF232B45),
     thumb = Color(0xFF222942),
-    accent = Color(0xFF5AA2FF),
-    shadowAlpha = 0.45f
+    accent = Color(0xFF5AA2FF)
 )
 
 @Composable
@@ -362,8 +360,6 @@ private fun ReferenceCard(
 ) {
     val p = refPalette()
     val shape = RoundedCornerShape(24.dp)
-    val shadowColor = Color.Black.copy(alpha = p.shadowAlpha)
-
     Surface(
         shape = shape,
         color = p.surface,
@@ -371,7 +367,7 @@ private fun ReferenceCard(
         modifier = Modifier
             .fillMaxWidth()
             .height(169.dp)
-            .shadow(6.dp, shape, ambientColor = shadowColor, spotColor = shadowColor)
+            .cardShadow(shapeRadius = 24.dp)
             .clip(shape)
             .clickable(onClick = onClick)
     ) {

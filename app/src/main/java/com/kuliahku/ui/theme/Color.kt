@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Core Light
 val Primary = Color(0xFF2563EB) // Biru Profesional (Blue 600)
-val Background = Color(0xFFF8FAFF) // Putih kebiruan sangat bersih
+val Background = Color(0xFFFBFCFF) // Putih kebiruan sangat bersih
 val Surface = Color(0xFFFFFFFF)
 val SurfaceVariant = Color(0xFFF1F5F9) // Slate 100 untuk kartu sekunder
 val OnSurface = Color(0xFF1E293B) // Dark Slate (Slate 800)

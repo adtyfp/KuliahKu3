@@ -101,13 +101,7 @@ class FinanceNotificationListener : NotificationListenerService() {
                 )
                 
                 repo.addFromNotification(tx).onSuccess {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        android.widget.Toast.makeText(
-                            this@FinanceNotificationListener,
-                            "Tercatat: Rp ${parsed.amount} (${parsed.type.value})",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    showSuccessNotification(parsed.amount, parsed.type.value, parsed.merchant ?: parserRegistry.displayName(pkg))
                     checkDailyLimit(parsed.type == com.kuliahku.data.model.TxType.EXPENSE)
                 }.onFailure { e ->
                     android.util.Log.e("FinanceNotif", "Gagal simpan: ${e.message}")
@@ -135,12 +129,13 @@ class FinanceNotificationListener : NotificationListenerService() {
             val limit = user.settings.dailyLimit
             if (limit <= 0) return@launch
 
-            val monthTransactions = repo.observeAll().first().filter { 
-                it.monthKey == MonthKey.of(java.util.Date()) 
-            }
+            val todayKey = MonthKey.of(java.util.Date())
+            // Gunakan query yang lebih efisien daripada observeAll().first()
+            val monthTransactions = repo.getTransactionsByMonth(todayKey)
+            
             val summary = FinanceStats.monthlySummary(monthTransactions)
-            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-            val key = "$today:$limit"
+            val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            val key = "$todayDateStr:$limit"
             
             if (summary.todayExpense > limit) {
                 if (lastNotifiedKey != key) {
@@ -175,13 +170,44 @@ class FinanceNotificationListener : NotificationListenerService() {
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // Set high for lockscreen importance
             .setContentIntent(pi)
             .setAutoCancel(true)
             .build()
 
         try {
             NotificationManagerCompat.from(this).notify(1001, notification)
+        } catch (_: SecurityException) { }
+    }
+
+    private fun showSuccessNotification(amount: Long, type: String, merchant: String) {
+        val isIncome = type == com.kuliahku.data.model.TxType.INCOME.value
+        val typeLabel = if (isIncome) "Pemasukan" else "Pengeluaran"
+        val title = if (isIncome) "Pemasukan Dicatat!" else "Pengeluaran Dicatat!"
+        val body = "Berhasil mencatat $typeLabel sebesar Rp $amount dari $merchant."
+
+        val intent = android.content.Intent(this, com.kuliahku.MainActivity::class.java).apply {
+            data = android.net.Uri.parse("kuliahku://finance")
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = android.app.PendingIntent.getActivity(
+            this,
+            System.currentTimeMillis().toInt(),
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, NotificationChannels.FINANCE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(this).notify(System.currentTimeMillis().toInt(), notification)
         } catch (_: SecurityException) { }
     }
 

@@ -38,6 +38,7 @@ import androidx.navigation.NavHostController
 import com.kuliahku.data.model.Note
 import com.kuliahku.ui.components.*
 import com.kuliahku.ui.navigation.Routes
+import com.kuliahku.ui.theme.cardShadow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -314,11 +315,6 @@ private fun NoteCard(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "cardScale"
     )
-    val elevation by animateDpAsState(
-        targetValue = if (isSelected) 8.dp else 2.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy),
-        label = "cardElevation"
-    )
 
     Box(
         modifier = Modifier
@@ -330,14 +326,9 @@ private fun NoteCard(
         Surface(
             shape = shape,
             color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-            border = BorderStroke(
-                if (isSelected) 2.dp else 1.dp,
-                if (isSelected) MaterialTheme.colorScheme.primary 
-                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            ),
-            shadowElevation = elevation,
             modifier = Modifier
                 .fillMaxWidth()
+                .cardShadow(shapeRadius = 20.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -409,14 +400,9 @@ private fun NoteRow(
         Surface(
             shape = shape,
             color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-            border = BorderStroke(
-                if (isSelected) 2.dp else 1.dp,
-                if (isSelected) MaterialTheme.colorScheme.primary 
-                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-            ),
-            shadowElevation = if (isSelected) 6.dp else 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
+                .cardShadow(shapeRadius = 20.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale

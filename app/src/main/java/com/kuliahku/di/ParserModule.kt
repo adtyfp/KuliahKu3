@@ -54,4 +54,16 @@ abstract class ParserModule {
     @Binds
     @IntoSet
     abstract fun bindShopeeParser(parser: ShopeeParser): NotificationParser
+
+    @Binds
+    @IntoSet
+    abstract fun bindBniParser(parser: BniParser): NotificationParser
+
+    @Binds
+    @IntoSet
+    abstract fun bindSeabankParser(parser: SeabankParser): NotificationParser
+
+    @Binds
+    @IntoSet
+    abstract fun bindJagoParser(parser: JagoParser): NotificationParser
 }

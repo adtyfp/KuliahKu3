@@ -26,6 +26,7 @@ import com.kuliahku.ui.components.EmptyView
 import com.kuliahku.ui.components.ErrorView
 import com.kuliahku.ui.components.ShimmerBox
 import com.kuliahku.ui.navigation.Routes
+import com.kuliahku.ui.theme.cardShadow
 import com.kuliahku.util.DateFormatters
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,7 +39,10 @@ fun InboxScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp)
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp)
     ) {
         AnimatedEntry(delay = 100) {
             Row(
@@ -104,8 +108,10 @@ private fun NotificationItem(item: AppNotification, onClick: () -> Unit, onDelet
         shape = RoundedCornerShape(16.dp),
         color = if (item.read) MaterialTheme.colorScheme.surface
         else MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
-        shadowElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+        modifier = Modifier
+            .fillMaxWidth()
+            .cardShadow(shapeRadius = 16.dp)
+            .clickable(onClick = onClick)
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
             Box(

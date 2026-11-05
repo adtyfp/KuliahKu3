@@ -56,6 +56,7 @@ import com.kuliahku.R
 import com.kuliahku.data.model.TxType
 import com.kuliahku.ui.components.KuliahkuContentDialog
 import com.kuliahku.ui.components.WheelDateTimePicker
+import com.kuliahku.ui.theme.cardShadow
 import java.util.Calendar
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,8 +76,7 @@ private class AddPalette(
     val segmentText: Color,
     val accent: Color,
     val error: Color,
-    val decor: Color,
-    val shadowAlpha: Float
+    val decor: Color
 )
 
 private val AddLight = AddPalette(
@@ -90,8 +90,7 @@ private val AddLight = AddPalette(
     segmentText = Color(0xFF666666),
     accent = Color(0xFF0F79DC),
     error = Color(0xFFC80000),
-    decor = Color(0xFF808080),
-    shadowAlpha = 0.10f
+    decor = Color(0xFF808080)
 )
 
 private val AddDark = AddPalette(
@@ -105,8 +104,7 @@ private val AddDark = AddPalette(
     segmentText = Color(0xFFA3ABC4),
     accent = Color(0xFF0F79DC),
     error = Color(0xFFFF6B7A),
-    decor = Color(0xFF5C6585),
-    shadowAlpha = 0.45f
+    decor = Color(0xFF5C6585)
 )
 
 @Composable
@@ -221,7 +219,7 @@ fun AddTransactionScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
-                        .shadow(6.dp, RoundedCornerShape(categoryCorner), ambientColor = Color.Black.copy(alpha = p.shadowAlpha), spotColor = Color.Black.copy(alpha = p.shadowAlpha))
+                        .cardShadow(shapeRadius = categoryCorner)
                         .background(p.surface, RoundedCornerShape(categoryCorner))
                         .border(1.dp, if (state.categoryError != null) p.error else p.border, RoundedCornerShape(categoryCorner))
                 ) {
@@ -298,7 +296,7 @@ fun AddTransactionScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing))
-                        .shadow(6.dp, RoundedCornerShape(dateCorner), ambientColor = Color.Black.copy(alpha = p.shadowAlpha), spotColor = Color.Black.copy(alpha = p.shadowAlpha))
+                        .cardShadow(shapeRadius = dateCorner)
                         .background(p.surface, RoundedCornerShape(dateCorner))
                         .border(1.dp, p.border, RoundedCornerShape(dateCorner))
                 ) {
@@ -404,12 +402,11 @@ private fun PillContainer(
     onClick: (() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit
 ) {
-    val shadowColor = Color.Black.copy(alpha = palette.shadowAlpha)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .height(49.dp)
-            .shadow(6.dp, CircleShape, ambientColor = shadowColor, spotColor = shadowColor),
+            .cardShadow(shapeRadius = 24.5.dp),
         shape = CircleShape,
         color = palette.surface,
         border = BorderStroke(1.dp, if (hasError) palette.error else palette.border)

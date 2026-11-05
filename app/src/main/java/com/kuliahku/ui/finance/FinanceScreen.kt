@@ -14,12 +14,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import com.kuliahku.ui.theme.cardShadow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -34,11 +34,15 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -86,12 +90,11 @@ private class FinPalette(
     val chartLabel: Color,
     val peakLabel: Color,
     val income: Color,
-    val expense: Color,
-    val shadowAlpha: Float
+    val expense: Color
 )
 
 private val FinLight = FinPalette(
-    background = Color(0xFFF8FAFF), // Senada dengan Beranda
+    background = Color(0xFFFBFCFF), // Senada dengan Beranda
     surface = Color.White,
     border = Color(0xFFE2E8F0), // Border halus slate
     textPrimary = Color(0xFF1E293B), // Dark slate
@@ -109,8 +112,7 @@ private val FinLight = FinPalette(
     chartLabel = Color(0xFF666666),
     peakLabel = Color(0xFF3A8F5A),
     income = Color(0xFF0AAA0A),
-    expense = Color(0xFFC80000),
-    shadowAlpha = 0.10f
+    expense = Color(0xFFC80000)
 )
 
 private val FinDark = FinPalette(
@@ -132,8 +134,7 @@ private val FinDark = FinPalette(
     chartLabel = Color(0xFFA3ABC4),
     peakLabel = Color(0xFF6EE79A),
     income = Color(0xFF3DD083),
-    expense = Color(0xFFFF6B7A),
-    shadowAlpha = 0.45f
+    expense = Color(0xFFFF6B7A)
 )
 
 @Composable
@@ -369,14 +370,13 @@ fun FinanceScreen(
                             Spacer(Modifier.height(8.dp))
 
                             val cardShape = RoundedCornerShape(24.dp)
-                            val shadowColor = Color.Black.copy(alpha = p.shadowAlpha)
                             Surface(
-                                shape = cardShape,
-                                color = p.surface,
-                                border = BorderStroke(1.dp, p.border),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .shadow(6.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor)
+                                    .cardShadow(shapeRadius = 24.dp),
+                                shape = cardShape,
+                                color = p.surface,
+                                border = BorderStroke(1.dp, p.border)
                             ) {
                                 Column {
                                     Row(
@@ -465,7 +465,7 @@ private fun DailyLimitProgress(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, shape, ambientColor = Color.Black.copy(alpha = p.shadowAlpha), spotColor = Color.Black.copy(alpha = p.shadowAlpha)),
+            .cardShadow(shapeRadius = 24.dp),
         shape = shape,
         color = p.surface,
         border = BorderStroke(1.dp, p.border)
@@ -518,9 +518,10 @@ private fun DailyLimitDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
+            modifier = Modifier.cardShadow(shapeRadius = 28.dp),
             shape = RoundedCornerShape(28.dp),
             color = p.surface,
-            tonalElevation = 6.dp
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -577,11 +578,7 @@ private fun AiInsightCard(insight: String?, isLoading: Boolean, p: FinPalette) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                6.dp, shape,
-                ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
-                spotColor = Color.Black.copy(alpha = p.shadowAlpha)
-            ),
+            .cardShadow(shapeRadius = 24.dp),
         shape = shape,
         color = p.surface,
         border = BorderStroke(1.dp, p.border)
@@ -605,7 +602,7 @@ private fun AiInsightCard(insight: String?, isLoading: Boolean, p: FinPalette) {
                     trackColor = p.border
                 )
             } else {
-                Text(
+                MarkdownText(
                     text = insight ?: "",
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
@@ -614,6 +611,49 @@ private fun AiInsightCard(insight: String?, isLoading: Boolean, p: FinPalette) {
             }
         }
     }
+}
+
+@Composable
+private fun MarkdownText(
+    text: String,
+    fontSize: TextUnit,
+    lineHeight: TextUnit,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val annotatedString = buildAnnotatedString {
+        val lines = text.split("\n")
+        lines.forEachIndexed { index, line ->
+            var currentLine = line
+            // Handle List items
+            if (currentLine.trimStart().startsWith("* ") || currentLine.trimStart().startsWith("- ")) {
+                append("  • ")
+                currentLine = currentLine.trimStart().removePrefix("* ").removePrefix("- ")
+            }
+
+            // Handle Bold
+            val parts = currentLine.split("**")
+            parts.forEachIndexed { partIndex, part ->
+                if (partIndex % 2 == 1) {
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append(part)
+                    }
+                } else {
+                    // Remove raw markdown headings if they exist
+                    val cleanedPart = part.replace(Regex("^#+\\s*"), "")
+                    append(cleanedPart)
+                }
+            }
+            if (index < lines.size - 1) append("\n")
+        }
+    }
+    Text(
+        text = annotatedString,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
+        color = color,
+        modifier = modifier
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -633,12 +673,7 @@ private fun WeeklyBarCard(
     val axisMax = niceCeil(maxVal)
 
     Surface(
-        modifier = modifier.shadow(
-            elevation = 8.dp,
-            shape = RoundedCornerShape(24.dp),
-            ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
-            spotColor = Color.Black.copy(alpha = p.shadowAlpha)
-        ),
+        modifier = modifier.cardShadow(shapeRadius = 24.dp),
         shape = RoundedCornerShape(24.dp),
         color = p.barCardBg,
         border = BorderStroke(1.dp, p.border.copy(alpha = 0.5f))
@@ -740,8 +775,7 @@ private fun SummaryCard(
         shape = RoundedCornerShape(24.dp),
         color = bg,
         border = BorderStroke(1.dp, p.border.copy(alpha = 0.5f)),
-        shadowElevation = 4.dp,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth().cardShadow(shapeRadius = 24.dp)
     ) {
         Column(Modifier.padding(start = 21.dp, top = 27.dp)) {
             Icon(icon, contentDescription = null, tint = p.textPrimary, modifier = Modifier.size(28.dp))
@@ -768,13 +802,12 @@ fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit
     val p = finPalette()
     val isIncome = tx.typeEnum == TxType.INCOME
     val shape = RoundedCornerShape(22.dp)
-    val shadowColor = Color.Black.copy(alpha = p.shadowAlpha)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.5.dp)
             .height(68.dp)
-            .shadow(6.dp, shape, ambientColor = shadowColor, spotColor = shadowColor),
+            .cardShadow(shapeRadius = 22.dp),
         shape = shape,
         color = p.surface,
         border = BorderStroke(1.dp, p.border)

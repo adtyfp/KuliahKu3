@@ -26,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -46,6 +45,7 @@ import coil.compose.AsyncImage
 import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.KuliahkuDialog
 import com.kuliahku.ui.navigation.Routes
+import com.kuliahku.ui.theme.cardShadow
 
 // ---------------------------------------------------------------------------
 // Palet Profil (Light = sesuai Profile.png, Dark = nilai yang sama dengan Beranda).
@@ -61,12 +61,11 @@ private class ProfilePalette(
     val textPrimary: Color,
     val divider: Color,
     val logoutBg: Color,
-    val logoutText: Color,
-    val shadowAlpha: Float
+    val logoutText: Color
 )
 
 private val ProfileLight = ProfilePalette(
-    background = Color(0xFFF8F9FF),
+    background = Color(0xFFFBFCFF), // Senada dengan Beranda
     header = Color(0xFF0080FF),
     decor = Color(0xFF0B2A5E),
     decorMuted = Color(0xFF8FA0BA),
@@ -75,8 +74,7 @@ private val ProfileLight = ProfilePalette(
     textPrimary = Color.Black,
     divider = Color(0xFFA0A0A0),
     logoutBg = Color(0xFFECEDF1),
-    logoutText = Color(0xFF666A73),
-    shadowAlpha = 0.10f
+    logoutText = Color(0xFF666A73)
 )
 
 private val ProfileDark = ProfilePalette(
@@ -89,8 +87,7 @@ private val ProfileDark = ProfilePalette(
     textPrimary = Color(0xFFF1F4FF),
     divider = Color(0xFF2E3652),
     logoutBg = Color(0xFF1B2134),
-    logoutText = Color(0xFFA3ABC4),
-    shadowAlpha = 0.45f
+    logoutText = Color(0xFFA3ABC4)
 )
 
 @Composable
@@ -104,7 +101,6 @@ fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val p = profilePalette()
-    val shadowColor = Color.Black.copy(alpha = p.shadowAlpha)
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -203,7 +199,7 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
                     .height(341.dp)
-                    .shadow(6.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor),
+                    .cardShadow(shapeRadius = 24.dp),
                 shape = cardShape,
                 color = p.surface,
                 border = BorderStroke(1.dp, p.border)
@@ -218,12 +214,12 @@ fun ProfileScreen(
                         icon = { NotificationIcon(p.textPrimary, p.surface) },
                         label = "Notifikasi",
                         palette = p
-                    ) { }
+                    ) { navController.navigate(Routes.NOTIFICATIONS_LIST) }
                     ProfileMenuItem(
                         icon = { MenuIcon(Icons.Outlined.EditNote, p.textPrimary) },
                         label = "Tampilan",
                         palette = p
-                    ) { }
+                    ) { navController.navigate(Routes.SETTINGS_APPEARANCE) }
                     ProfileMenuItem(
                         icon = { MenuIcon(Icons.Outlined.Hearing, p.textPrimary) },
                         label = "Bantuan & Dukungan",
@@ -233,7 +229,7 @@ fun ProfileScreen(
                         icon = { MenuIcon(Icons.Outlined.Settings, p.textPrimary) },
                         label = "Pengaturan",
                         palette = p
-                    ) { }
+                    ) { navController.navigate(Routes.SETTINGS) }
                 }
             }
         }

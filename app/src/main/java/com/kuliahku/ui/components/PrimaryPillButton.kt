@@ -6,6 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+import com.kuliahku.ui.theme.cardShadow
+
 @Composable
 fun PrimaryPillButton(
     text: String,
@@ -20,6 +22,7 @@ fun PrimaryPillButton(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
+            .cardShadow(shapeRadius = 28.dp)
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }

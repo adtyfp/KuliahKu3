@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.kuliahku.ui.theme.cardShadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -50,8 +51,7 @@ private class DetailPalette(
     val income: Color,
     val expense: Color,
     val incomeBg: Color,
-    val expenseBg: Color,
-    val shadowAlpha: Float
+    val expenseBg: Color
 )
 
 private val DetailLight = DetailPalette(
@@ -64,8 +64,7 @@ private val DetailLight = DetailPalette(
     income = Color(0xFF0AAA0A),
     expense = Color(0xFFC80000),
     incomeBg = Color(0xFFC2FFC4),
-    expenseBg = Color(0xFFFFB1B1),
-    shadowAlpha = 0.10f
+    expenseBg = Color(0xFFFFB1B1)
 )
 
 private val DetailDark = DetailPalette(
@@ -78,8 +77,7 @@ private val DetailDark = DetailPalette(
     income = Color(0xFF3DD083),
     expense = Color(0xFFFF6B7A),
     incomeBg = Color(0xFF14362A),
-    expenseBg = Color(0xFF45202A),
-    shadowAlpha = 0.45f
+    expenseBg = Color(0xFF45202A)
 )
 
 @Composable
@@ -149,7 +147,6 @@ fun TransactionDetailContent(tx: Transaction, padding: PaddingValues) {
     val accent = if (isIncome) p.income else p.expense
     val accentBg = if (isIncome) p.incomeBg else p.expenseBg
     val cardShape = RoundedCornerShape(24.dp)
-    val shadowColor = Color.Black.copy(alpha = p.shadowAlpha)
     val note = tx.description?.takeIf { it.isNotBlank() }
 
     Column(
@@ -169,7 +166,7 @@ fun TransactionDetailContent(tx: Transaction, padding: PaddingValues) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(6.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor),
+                    .cardShadow(shapeRadius = 24.dp),
                 shape = cardShape,
                 color = p.surface,
                 border = BorderStroke(1.dp, p.border)
@@ -215,7 +212,7 @@ fun TransactionDetailContent(tx: Transaction, padding: PaddingValues) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(6.dp, cardShape, ambientColor = shadowColor, spotColor = shadowColor),
+                    .cardShadow(shapeRadius = 24.dp),
                 shape = cardShape,
                 color = p.surface,
                 border = BorderStroke(1.dp, p.border)

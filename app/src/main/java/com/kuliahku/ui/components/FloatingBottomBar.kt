@@ -1,17 +1,22 @@
 package com.kuliahku.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -20,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kuliahku.ui.theme.cardShadow
 
 private fun roundRectPath(x: Float, y: Float, w: Float, h: Float, r: Float): String =
     "M${x + r} ${y}h${w - 2 * r}a$r $r 0 0 1 $r $r" +
@@ -52,7 +58,6 @@ private fun navIcon(name: String, build: ImageVector.Builder.() -> Unit): ImageV
 @Composable
 fun rememberHomeIcon(): ImageVector = remember {
     navIcon("Home") {
-
         addPath(
             pathData = addPathNodes("M12 3.3L21.3 11.4H19V20.6H14.9V16H9.1V20.6H5V11.4H2.7Z"),
             fill = SolidColor(Color.Black),
@@ -141,49 +146,107 @@ fun FloatingBottomBar(
     modifier: Modifier = Modifier
 ) {
     val p = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) BarDark else BarLight
+    
+    // State untuk mendeteksi indeks secara instan
+    val selectedIndex = remember(currentRoute) {
+        val index = bottomNavItems.indexOfFirst { it.route == currentRoute }
+        if (index == -1) 0 else index
+    }
+
+    // Animasi indeks (fractional) yang sangat halus menggunakan GPU-bound property
+    val animatedIndex by animateFloatAsState(
+        targetValue = selectedIndex.toFloat(),
+        animationSpec = spring(
+            dampingRatio = 0.8f,
+            stiffness = Spring.StiffnessLow // Memberikan kesan 'premium' dan fluid
+        ),
+        label = "pillIndex"
+    )
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        shape = RoundedCornerShape(30),
-        shadowElevation = 8.dp,
+            .padding(horizontal = 12.dp, vertical = 12.dp) // Bar dibuat lebih lebar
+            .cardShadow(shapeRadius = 30.dp, blurRadius = 35.dp, offsetY = 12.dp),
+        shape = RoundedCornerShape(30.dp),
         color = p.surface,
         border = p.border?.let { BorderStroke(1.dp, it) }
     ) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(4.dp) 
+                .height(74.dp) // Tinggi ditingkatkan agar lebih lega
         ) {
-            bottomNavItems.forEach { item ->
-                val selected = currentRoute == item.route
-                val icon = item.icon()
-                val tint = if (selected) p.active else p.inactive
+            val itemWidth = maxWidth / bottomNavItems.size
+            
+            // Background Pill (Sliding dengan GPU Acceleration)
+            Box(
+                modifier = Modifier
+                    .width(itemWidth)
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        translationX = animatedIndex * size.width
+                    }
+                    .padding(0.dp) // Area biru meluas maksimal ke samping
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(p.active.copy(alpha = 0.12f))
+            )
 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (selected) tint.copy(alpha = 0.12f) else Color.Transparent)
-                        .clickable { onNavigate(item.route) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = item.label,
-                        tint = tint,
-                        modifier = Modifier.size(24.dp)
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                bottomNavItems.forEachIndexed { index, item ->
+                    val isSelected = index == selectedIndex
+                    
+                    val tint by animateColorAsState(
+                        targetValue = if (isSelected) p.active else p.inactive,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        label = "navTint"
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        item.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        color = tint
+
+                    val scale by animateFloatAsState(
+                        targetValue = if (isSelected) 1.15f else 1.0f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        label = "navScale"
                     )
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { 
+                                if (!isSelected) onNavigate(item.route) 
+                            }
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                            },
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        val icon = item.icon()
+                        Icon(
+                            icon,
+                            contentDescription = item.label,
+                            tint = tint,
+                            modifier = Modifier.size(26.dp) // Ukuran ikon diperbesar sedikit
+                        )
+                        Spacer(modifier = Modifier.height(4.dp)) // Jarak antar ikon & teks
+                        Text(
+                            item.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = tint,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }

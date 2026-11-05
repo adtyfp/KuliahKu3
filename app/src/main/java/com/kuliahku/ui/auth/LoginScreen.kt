@@ -28,6 +28,7 @@ import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.KuliahkuLogo
 import com.kuliahku.ui.components.PillTextField
 import com.kuliahku.ui.components.PrimaryPillButton
+import com.kuliahku.ui.theme.cardShadow
 
 @Composable
 fun LoginScreen(
@@ -120,8 +121,7 @@ fun LoginScreen(
                 value = state.identifier,
                 onValueChange = viewModel::onIdentifierChange,
                 placeholder = "Email/NIM",
-                error = state.identifierError,
-                modifier = Modifier.shadow(8.dp, MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                error = state.identifierError
             )
         }
         
@@ -133,8 +133,7 @@ fun LoginScreen(
                 onValueChange = viewModel::onPasswordChange,
                 placeholder = "Password",
                 isPassword = true,
-                error = state.passwordError,
-                modifier = Modifier.shadow(8.dp, MaterialTheme.shapes.extraLarge, ambientColor = Color.Black.copy(alpha = 0.1f))
+                error = state.passwordError
             )
         }
 

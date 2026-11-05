@@ -10,9 +10,14 @@ import com.kuliahku.data.repository.TaskRepository
 import com.kuliahku.util.DateFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.Calendar
+import java.util.Date
 import javax.inject.Inject
 
 data class AddEditTaskUiState(
@@ -47,48 +52,205 @@ class AddEditTaskViewModel @Inject constructor(
     val events = _events.receiveAsFlow()
 
     init {
-        // Kita pakai route arg lewat SubmitTaskScreen; untuk edit, nanti di FASE lanjutan.
-        // Di FASE 3 ini layar Tambah Tugas saja.
+        val taskId = savedState.get<String>("taskId")
+
+        if (!taskId.isNullOrBlank()) {
+            loadTask(taskId)
+        }
     }
 
-    fun onTitleChange(v: String) { _uiState.update { it.copy(title = v, titleError = null) } }
-    fun onDescriptionChange(v: String) { _uiState.update { it.copy(description = v) } }
-    fun onPriorityChange(p: TaskPriority) { _uiState.update { it.copy(priority = p) } }
+    private fun loadTask(taskId: String) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    taskId = taskId,
+                    isEditMode = true,
+                    isLoading = true
+                )
+            }
+
+            try {
+                val task = repo.observeTask(taskId).first()
+
+                if (task == null) {
+                    _events.send(
+                        AddEditTaskEvent.ShowMessage("Tugas tidak ditemukan.")
+                    )
+                } else {
+                    val deadlineMillis = task.deadline?.toDate()?.time
+
+                    _uiState.update {
+                        it.copy(
+                            taskId = task.id,
+                            title = task.title,
+                            description = task.description,
+                            deadlineMillis = deadlineMillis,
+                            deadlineLabel = deadlineMillis?.let { millis ->
+                                val date = Date(millis)
+                                DateFormatters.formatMediumDate(date) +
+                                        " " +
+                                        DateFormatters.formatTime(date)
+                            } ?: "",
+                            priority = TaskPriority.from(task.priority)
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _events.send(
+                    AddEditTaskEvent.ShowMessage(
+                        e.message ?: "Gagal memuat tugas."
+                    )
+                )
+            } finally {
+                _uiState.update {
+                    it.copy(isLoading = false)
+                }
+            }
+        }
+    }
+
+    fun onTitleChange(value: String) {
+        _uiState.update {
+            it.copy(
+                title = value,
+                titleError = null
+            )
+        }
+    }
+
+    fun onDescriptionChange(value: String) {
+        _uiState.update {
+            it.copy(description = value)
+        }
+    }
+
+    fun onPriorityChange(priority: TaskPriority) {
+        _uiState.update {
+            it.copy(priority = priority)
+        }
+    }
 
     fun onDeadlineChange(millis: Long) {
+        val date = Date(millis)
+
         _uiState.update {
             it.copy(
                 deadlineMillis = millis,
-                deadlineLabel = DateFormatters.formatMediumDate(java.util.Date(millis)) +
-                        " " + DateFormatters.formatTime(java.util.Date(millis)),
+                deadlineLabel = DateFormatters.formatMediumDate(date) +
+                        " " +
+                        DateFormatters.formatTime(date),
                 deadlineError = null
             )
         }
     }
 
     fun save() {
-        val s = _uiState.value
-        val errors = mutableMapOf<String, String?>()
-        if (s.title.isBlank()) errors["title"] = "Nama tugas wajib diisi."
-        if (s.deadlineMillis == null) errors["deadline"] = "Deadline wajib diisi."
-        if (errors.isNotEmpty()) {
-            _uiState.update { it.copy(titleError = errors["title"], deadlineError = errors["deadline"]) }
+        val current = _uiState.value
+
+        if (current.isSaving) return
+
+        val titleError = if (current.title.isBlank()) {
+            "Nama tugas wajib diisi."
+        } else {
+            null
+        }
+
+        val deadlineError = if (current.deadlineMillis == null) {
+            "Deadline wajib diisi."
+        } else {
+            null
+        }
+
+        if (titleError != null || deadlineError != null) {
+            _uiState.update {
+                it.copy(
+                    titleError = titleError,
+                    deadlineError = deadlineError
+                )
+            }
             return
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
-            val task = Task(
-                title = s.title.trim(),
-                description = s.description.trim(),
-                deadline = Timestamp(java.util.Date(s.deadlineMillis!!)),
-                priority = s.priority.value,
-                color = 0
-            )
-            repo.addTask(task)
-                .onSuccess { _events.send(AddEditTaskEvent.Saved) }
-                .onFailure { _events.send(AddEditTaskEvent.ShowMessage(it.message ?: "Gagal menyimpan.")) }
-            _uiState.update { it.copy(isSaving = false) }
+            _uiState.update {
+                it.copy(isSaving = true)
+            }
+
+            try {
+                val deadline = Timestamp(
+                    Date(current.deadlineMillis!!)
+                )
+
+                if (current.isEditMode) {
+                    // PROSES EDIT TUGAS
+                    val taskId = current.taskId
+
+                    if (taskId.isNullOrBlank()) {
+                        _events.send(
+                            AddEditTaskEvent.ShowMessage(
+                                "ID tugas tidak ditemukan."
+                            )
+                        )
+                        return@launch
+                    }
+
+                    val result = repo.updateTask(
+                        taskId = taskId,
+                        updates = mapOf(
+                            "title" to current.title.trim(),
+                            "description" to current.description.trim(),
+                            "deadline" to deadline,
+                            "priority" to current.priority.value
+                        )
+                    )
+
+                    result
+                        .onSuccess {
+                            _events.send(AddEditTaskEvent.Saved)
+                        }
+                        .onFailure { error ->
+                            _events.send(
+                                AddEditTaskEvent.ShowMessage(
+                                    error.message ?: "Gagal memperbarui tugas."
+                                )
+                            )
+                        }
+
+                } else {
+                    // PROSES TAMBAH TUGAS
+                    val result = repo.addTask(
+                        Task(
+                            title = current.title.trim(),
+                            description = current.description.trim(),
+                            deadline = deadline,
+                            priority = current.priority.value,
+                            color = 0
+                        )
+                    )
+
+                    result
+                        .onSuccess {
+                            _events.send(AddEditTaskEvent.Saved)
+                        }
+                        .onFailure { error ->
+                            _events.send(
+                                AddEditTaskEvent.ShowMessage(
+                                    error.message ?: "Gagal menambahkan tugas."
+                                )
+                            )
+                        }
+                }
+            } catch (e: Exception) {
+                _events.send(
+                    AddEditTaskEvent.ShowMessage(
+                        e.message ?: "Terjadi kesalahan saat menyimpan tugas."
+                    )
+                )
+            } finally {
+                _uiState.update {
+                    it.copy(isSaving = false)
+                }
+            }
         }
     }
 }

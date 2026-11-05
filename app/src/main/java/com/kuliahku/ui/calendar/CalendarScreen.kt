@@ -48,6 +48,7 @@ import com.kuliahku.data.repository.EventRepository
 import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.KuliahkuDialog
 import com.kuliahku.ui.navigation.Routes
+import com.kuliahku.ui.theme.cardShadow
 import com.kuliahku.util.DateFormatters
 import java.util.Calendar
 
@@ -588,7 +589,7 @@ private fun AgendaItem(
             .fillMaxWidth()
             .padding(horizontal = 22.dp, vertical = 6.dp)
             .height(111.dp)
-            .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.08f)),
+            .cardShadow(shapeRadius = 16.dp),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, p.divider.copy(alpha = 0.5f))

@@ -23,7 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import com.kuliahku.ui.theme.cardShadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
@@ -35,14 +35,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.kuliahku.ai.AiClient
+import com.kuliahku.data.model.ChatMessage
 import com.kuliahku.data.model.Flashcard
 import com.kuliahku.data.model.JournalReference
 import com.kuliahku.data.model.QuizQuestion
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.TextUnit
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -63,8 +72,7 @@ private class ResultPalette(
     val success: Color,
     val successSoft: Color,
     val danger: Color,
-    val dangerSoft: Color,
-    val shadowAlpha: Float
+    val dangerSoft: Color
 )
 
 private val LightResultPalette = ResultPalette(
@@ -79,8 +87,7 @@ private val LightResultPalette = ResultPalette(
     success = Color(0xFF1E9E1E),
     successSoft = Color(0xFFDDF8DD),
     danger = Color(0xFFE02020),
-    dangerSoft = Color(0xFFFFE3E3),
-    shadowAlpha = 0.08f
+    dangerSoft = Color(0xFFFFE3E3)
 )
 
 private val DarkResultPalette = ResultPalette(
@@ -95,8 +102,7 @@ private val DarkResultPalette = ResultPalette(
     success = Color(0xFF3DD083),
     successSoft = Color(0xFF14362A),
     danger = Color(0xFFFF6B7A),
-    dangerSoft = Color(0xFF45202A),
-    shadowAlpha = 0.45f
+    dangerSoft = Color(0xFF45202A)
 )
 
 @Composable
@@ -104,14 +110,11 @@ private fun resultPalette(): ResultPalette =
     if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkResultPalette else LightResultPalette
 
 /** Kartu standar: radius 16, border 1 dp, bayangan lembut (sama dengan kartu tugas). */
+@Composable
 private fun Modifier.card(p: ResultPalette, radius: Dp = 16.dp): Modifier {
     val shape = RoundedCornerShape(radius)
     return this
-        .shadow(
-            4.dp, shape,
-            ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
-            spotColor = Color.Black.copy(alpha = p.shadowAlpha)
-        )
+        .cardShadow(shapeRadius = radius)
         .background(p.surface, shape)
         .border(1.dp, p.border, shape)
 }
@@ -349,6 +352,16 @@ private fun EmptyState(
 
 @Composable
 private fun SummaryTab(summary: String?, p: ResultPalette, onGenerate: () -> Unit, onSaveNote: () -> Unit) {
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    var isCopied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isCopied) {
+        if (isCopied) {
+            kotlinx.coroutines.delay(2000)
+            isCopied = false
+        }
+    }
+
     if (summary.isNullOrBlank()) {
         EmptyState(
             icon = Icons.Filled.AutoAwesome,
@@ -366,16 +379,39 @@ private fun SummaryTab(summary: String?, p: ResultPalette, onGenerate: () -> Uni
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         Column(Modifier.fillMaxWidth().card(p, 20.dp).padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(
                     Modifier.size(32.dp).clip(CircleShape).background(p.accentSoft),
                     contentAlignment = Alignment.Center
                 ) { Icon(Icons.Filled.AutoAwesome, null, tint = p.accentText, modifier = Modifier.size(18.dp)) }
                 Spacer(Modifier.width(10.dp))
                 Text("Ringkasan", fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, color = p.textPrimary)
+                Spacer(Modifier.weight(1f))
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(summary))
+                        isCopied = true
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                        contentDescription = "Salin Ringkasan",
+                        tint = if (isCopied) p.success else p.textSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
             Spacer(Modifier.height(14.dp))
-            Text(summary, fontSize = 15.sp, lineHeight = 24.sp, color = p.textPrimary)
+            MarkdownText(
+                summary,
+                fontSize = 15.sp,
+                lineHeight = 24.sp,
+                color = p.textPrimary
+            )
         }
         Spacer(Modifier.height(20.dp))
         ActionButton("Simpan sebagai Catatan", onSaveNote, p)
@@ -560,50 +596,102 @@ private fun FlashcardTab(cards: List<Flashcard>, p: ResultPalette, onGenerate: (
     }
     LazyColumn(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         itemsIndexed(cards) { index, c ->
-            var flipped by remember { mutableStateOf(false) }
-            val shape = RoundedCornerShape(20.dp)
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .shadow(
-                        4.dp, shape,
-                        ambientColor = Color.Black.copy(alpha = p.shadowAlpha),
-                        spotColor = Color.Black.copy(alpha = p.shadowAlpha)
-                    )
-                    .background(if (flipped) p.accentSoft else p.surface, shape)
-                    .border(1.dp, if (flipped) p.accent.copy(alpha = 0.5f) else p.border, shape)
-                    .clip(shape)
-                    .clickable { flipped = !flipped }
-                    .padding(20.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (flipped) "JAWABAN" else "PERTANYAAN",
-                        fontSize = 11.sp, lineHeight = 14.sp,
-                        fontWeight = FontWeight.Bold, color = p.accentText
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text("${index + 1} / ${cards.size}", fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    if (flipped) c.back else c.front,
-                    fontSize = 16.sp, lineHeight = 24.sp,
-                    fontWeight = FontWeight.SemiBold, color = p.textPrimary
-                )
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.SwapHoriz, null, tint = p.textSecondary, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        if (flipped) "Ketuk untuk kembali" else "Ketuk untuk melihat jawaban",
-                        fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary
-                    )
-                }
+            FlashcardItem(index = index, total = cards.size, card = c, p = p)
+        }
+    }
+}
+
+@Composable
+private fun FlashcardItem(index: Int, total: Int, card: Flashcard, p: ResultPalette) {
+    var flipped by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (flipped) 180f else 0f,
+        animationSpec = tween(durationMillis = 500),
+        label = "flashcardFlip"
+    )
+
+    val shape = RoundedCornerShape(20.dp)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 180.dp)
+            .graphicsLayer {
+                rotationY = rotation
+                cameraDistance = 12f * density
             }
+            .cardShadow(shapeRadius = 20.dp)
+            .background(if (rotation > 90f) p.accentSoft else p.surface, shape)
+            .border(1.dp, if (rotation > 90f) p.accent.copy(alpha = 0.5f) else p.border, shape)
+            .clip(shape)
+            .clickable { flipped = !flipped },
+        contentAlignment = Alignment.Center
+    ) {
+        if (rotation <= 90f) {
+            // Front Side
+            FlashcardSide(
+                label = "PERTANYAAN",
+                content = card.front,
+                pageInfo = "${index + 1} / $total",
+                isBack = false,
+                p = p
+            )
+        } else {
+            // Back Side (flipped again to face forward)
+            Box(Modifier.graphicsLayer { rotationY = 180f }) {
+                FlashcardSide(
+                    label = "JAWABAN",
+                    content = card.back,
+                    pageInfo = "${index + 1} / $total",
+                    isBack = true,
+                    p = p
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FlashcardSide(
+    label: String,
+    content: String,
+    pageInfo: String,
+    isBack: Boolean,
+    p: ResultPalette
+) {
+    Column(Modifier.padding(20.dp).fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                label,
+                fontSize = 11.sp, lineHeight = 14.sp,
+                fontWeight = FontWeight.Bold, color = p.accentText
+            )
+            Spacer(Modifier.weight(1f))
+            Text(pageInfo, fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            content,
+            fontSize = 16.sp, lineHeight = 24.sp,
+            fontWeight = FontWeight.SemiBold, color = p.textPrimary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Filled.SwapHoriz, null, tint = p.textSecondary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                if (isBack) "Ketuk untuk kembali" else "Ketuk untuk melihat jawaban",
+                fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary
+            )
         }
     }
 }
@@ -612,7 +700,7 @@ private fun FlashcardTab(cards: List<Flashcard>, p: ResultPalette, onGenerate: (
 
 @Composable
 private fun ChatTab(
-    messages: List<Pair<String, String>>,
+    messages: List<ChatMessage>,
     input: String,
     p: ResultPalette,
     onInput: (String) -> Unit,
@@ -639,8 +727,8 @@ private fun ChatTab(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                itemsIndexed(messages) { _, (role, msg) ->
-                    val isUser = role == "user"
+                itemsIndexed(messages) { _, msg ->
+                    val isUser = msg.role == "user"
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
@@ -658,11 +746,19 @@ private fun ChatTab(
                                 .then(if (isUser) Modifier else Modifier.border(1.dp, p.border, shape))
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
                         ) {
-                            Text(
-                                msg,
-                                fontSize = 14.sp, lineHeight = 21.sp,
-                                color = if (isUser) Color.White else p.textPrimary
-                            )
+                            if (isUser) {
+                                Text(
+                                    msg.content,
+                                    fontSize = 14.sp, lineHeight = 21.sp,
+                                    color = Color.White
+                                )
+                            } else {
+                                MarkdownText(
+                                    msg.content,
+                                    fontSize = 14.sp, lineHeight = 21.sp,
+                                    color = p.textPrimary
+                                )
+                            }
                         }
                     }
                 }
@@ -745,9 +841,18 @@ private fun ReferenceTab(references: List<JournalReference>, p: ResultPalette, o
         }
         itemsIndexed(references) { _, ref ->
             ReferenceItem(ref = ref, p = p) {
-                val url = ref.doi ?: "https://openalex.org/works/${ref.id}"
-                val intent = CustomTabsIntent.Builder().build()
-                intent.launchUrl(context, url.toUri())
+                val urlString = ref.doi ?: "https://openalex.org/works/${ref.id}"
+                try {
+                    val url = urlString.toUri()
+                    if (url.scheme != null && url.host != null) {
+                        val intent = CustomTabsIntent.Builder().build()
+                        intent.launchUrl(context, url)
+                    } else {
+                        android.widget.Toast.makeText(context, "URL tidak valid", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(context, "Tidak dapat membuka link", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -808,4 +913,43 @@ private fun ReferenceItem(ref: JournalReference, p: ResultPalette, onClick: () -
             }
         }
     }
+}
+
+@Composable
+private fun MarkdownText(
+    text: String,
+    fontSize: TextUnit,
+    lineHeight: TextUnit,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val annotatedString = buildAnnotatedString {
+        val lines = text.split("\n")
+        lines.forEachIndexed { index, line ->
+            var currentLine = line
+            if (currentLine.trimStart().startsWith("* ") || currentLine.trimStart().startsWith("- ")) {
+                append("  • ")
+                currentLine = currentLine.trimStart().removePrefix("* ").removePrefix("- ")
+            }
+
+            val parts = currentLine.split("**")
+            parts.forEachIndexed { partIndex, part ->
+                if (partIndex % 2 == 1) {
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append(part)
+                    }
+                } else {
+                    append(part)
+                }
+            }
+            if (index < lines.size - 1) append("\n")
+        }
+    }
+    Text(
+        text = annotatedString,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
+        color = color,
+        modifier = modifier
+    )
 }
