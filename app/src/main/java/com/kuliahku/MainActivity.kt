@@ -1,3 +1,4 @@
+
 package com.kuliahku
 
 import android.os.Build
@@ -24,6 +25,7 @@ import com.kuliahku.data.repository.EventRepository
 import com.kuliahku.data.repository.TaskRepository
 import com.kuliahku.notification.NotificationChannels
 import com.kuliahku.notification.ReminderScheduler
+import com.kuliahku.notification.listener.FinanceNotificationListener
 import com.kuliahku.ui.components.KuliahkuDialog
 import com.kuliahku.ui.navigation.AppNavHost
 import com.kuliahku.ui.navigation.Routes
@@ -38,52 +40,96 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject lateinit var appPreferences: AppPreferences
-    @Inject lateinit var authRepo: AuthRepository
-    @Inject lateinit var taskRepo: TaskRepository
-    @Inject lateinit var eventRepo: EventRepository
-    @Inject lateinit var scheduler: ReminderScheduler
+    @Inject
+    lateinit var appPreferences: AppPreferences
+
+    @Inject
+    lateinit var authRepo: AuthRepository
+
+    @Inject
+    lateinit var taskRepo: TaskRepository
+
+    @Inject
+    lateinit var eventRepo: EventRepository
+
+    @Inject
+    lateinit var scheduler: ReminderScheduler
 
     private val notifPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* hasil diabaikan, user bisa mengaktifkan nanti */ }
+    ) {
+        // Hasil izin notifikasi diabaikan.
+        // Pengguna tetap dapat mengaktifkannya melalui pengaturan.
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
+        // Android System Splash Screen
         val splash = installSplashScreen()
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Membuat notification channel
         NotificationChannels.ensureChannels(this)
 
+        // Meminta izin notifikasi Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notifPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            notifPermissionLauncher.launch(
+                android.Manifest.permission.POST_NOTIFICATIONS
+            )
         }
 
         // Reschedule semua reminder untuk sesi saat ini
         CoroutineScope(Dispatchers.IO).launch {
-            taskRepo.observeAllTasks().first().forEach { scheduler.scheduleTaskReminders(it) }
-            eventRepo.observeAll().first().forEach { scheduler.scheduleEventReminder(it) }
+            taskRepo.observeAllTasks().first().forEach {
+                scheduler.scheduleTaskReminders(it)
+            }
+
+            eventRepo.observeAll().first().forEach {
+                scheduler.scheduleEventReminder(it)
+            }
         }
 
-        val initialDeepLink: String? = intent?.data?.toString()
+        val initialDeepLink = intent?.data?.toString()
 
         setContent {
-            val themeMode by appPreferences.themeMode.collectAsState(initial = "system")
-            val themeColorHex by appPreferences.themeColor.collectAsState(initial = "#0080FF")
-            val fontSize by appPreferences.fontSize.collectAsState(initial = "medium")
-            val uiStyle by appPreferences.uiStyle.collectAsState(initial = "soft")
-            val appLanguage by appPreferences.appLanguage.collectAsState(initial = "id")
+
+            val themeMode by appPreferences.themeMode.collectAsState(
+                initial = "system"
+            )
+
+            val themeColorHex by appPreferences.themeColor.collectAsState(
+                initial = "#0080FF"
+            )
+
+            val fontSize by appPreferences.fontSize.collectAsState(
+                initial = "medium"
+            )
+
+            val uiStyle by appPreferences.uiStyle.collectAsState(
+                initial = "soft"
+            )
+
+            val appLanguage by appPreferences.appLanguage.collectAsState(
+                initial = "id"
+            )
 
             // Locale handling
             val context = androidx.compose.ui.platform.LocalContext.current
+
             LaunchedEffect(appLanguage) {
                 val locale = java.util.Locale(appLanguage)
+
                 java.util.Locale.setDefault(locale)
+
                 val config = context.resources.configuration
                 config.setLocale(locale)
+
                 context.createConfigurationContext(config)
-                // Catatan: Untuk penggantian bahasa yang sempurna biasanya butuh recreate activity, 
-                // tapi ini dasar untuk compose agar komponen merespon.
+
+                // Untuk penggantian bahasa secara menyeluruh,
+                // Activity dapat direcreate bila diperlukan.
             }
 
             KuliahkuTheme(
@@ -92,62 +138,124 @@ class MainActivity : ComponentActivity() {
                 fontSizeMode = fontSize,
                 uiStyle = uiStyle
             ) {
-                var startDestination by remember { mutableStateOf<String?>(null) }
-                var showNotifAccessDialog by remember { mutableStateOf(false) }
-                
+
+                // Tujuan awal aplikasi
+                var startDestination by remember {
+                    mutableStateOf<String?>(null)
+                }
+
+                // Mengontrol apakah animasi splash perlu ditampilkan
+                var showSplash by remember {
+                    mutableStateOf(false)
+                }
+
+                var showNotifAccessDialog by remember {
+                    mutableStateOf(false)
+                }
+
                 LaunchedEffect(Unit) {
+
                     // Cek apakah listener notifikasi sudah aktif
-                    val isNotifListenerEnabled = com.kuliahku.notification.listener.FinanceNotificationListener.isEnabled(context)
+                    val isNotifListenerEnabled =
+                        FinanceNotificationListener.isEnabled(context)
+
                     if (!isNotifListenerEnabled) {
                         showNotifAccessDialog = true
                     }
 
-                    val hasSeenWelcome = appPreferences.hasSeenWelcome()
-                    val isLoggedIn = appPreferences.isLoggedIn()
+                    // Periksa status welcome dan login
+                    val hasSeenWelcome =
+                        appPreferences.hasSeenWelcome()
+
+                    val isLoggedIn =
+                        appPreferences.isLoggedIn()
+
                     val firebaseUser = authRepo.currentUser
 
-                    // Sinkronisasi status login antara DataStore dan Firebase
+                    // Sinkronisasi status login DataStore dan Firebase
                     if (isLoggedIn && firebaseUser == null) {
+
+                        // DataStore menyatakan login,
+                        // tetapi Firebase tidak memiliki pengguna.
                         appPreferences.setLoggedIn(false)
+
                     } else if (!isLoggedIn && firebaseUser != null) {
+
+                        // Firebase masih memiliki sesi,
+                        // tetapi DataStore menyatakan logout.
                         authRepo.logout()
                     }
 
-                    val finalIsLoggedIn = appPreferences.isLoggedIn()
+                    // Ambil status login setelah sinkronisasi
+                    val finalIsLoggedIn =
+                        appPreferences.isLoggedIn()
+
+                    // PENTING:
+                    // Splash hanya ditampilkan jika belum login.
+                    showSplash = !finalIsLoggedIn
+
+                    // Tentukan halaman awal
                     startDestination = when {
                         finalIsLoggedIn -> Routes.HOME
+
                         hasSeenWelcome -> Routes.LOGIN
+
                         else -> Routes.WELCOME
                     }
                 }
 
+                // Dialog akses notifikasi
                 if (showNotifAccessDialog) {
+
                     KuliahkuDialog(
-                        onDismissRequest = { showNotifAccessDialog = false },
+                        onDismissRequest = {
+                            showNotifAccessDialog = false
+                        },
+
                         title = "Aktifkan Catat Otomatis?",
+
                         text = "KuliahKu butuh izin 'Akses Notifikasi' untuk mencatat transaksi bank secara otomatis sehingga pengeluaran Anda terpantau lebih mudah. Aktifkan sekarang?",
+
                         icon = Icons.Outlined.NotificationsActive,
+
                         confirmText = "Buka Pengaturan",
+
                         onConfirm = {
                             showNotifAccessDialog = false
-                            com.kuliahku.notification.listener.FinanceNotificationListener.openSettings(context)
+
+                            FinanceNotificationListener.openSettings(context)
                         },
+
                         dismissText = "Nanti Saja"
                     )
                 }
 
-                startDestination?.let {
+                // Jalankan Navigation setelah pemeriksaan login selesai
+                if (startDestination != null) {
+
                     AppNavHost(
                         navController = rememberNavController(),
-                        startDestination = it,
-                        initialDeepLink = initialDeepLink
+
+                        startDestination = startDestination!!,
+
+                        initialDeepLink = initialDeepLink,
+
+                        showSplash = showSplash
                     )
-                } ?: run {
-                    // Tampilkan background splash dasar selagi menghitung startDestination
+
+                } else {
+
+                    // Background sementara ketika status login diperiksa
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(if (isSystemInDarkTheme()) Color(0xFF020617) else Color.White)
+                            .background(
+                                if (isSystemInDarkTheme()) {
+                                    Color(0xFF020617)
+                                } else {
+                                    Color.White
+                                }
+                            )
                     )
                 }
             }

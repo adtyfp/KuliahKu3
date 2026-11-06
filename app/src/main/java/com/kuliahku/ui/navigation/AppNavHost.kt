@@ -7,12 +7,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -21,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -84,42 +83,75 @@ import com.kuliahku.ui.finance.NotificationListenerIntroScreen
 import com.kuliahku.ui.components.FloatingBottomBar
 import com.kuliahku.ui.components.bottomNavItems
 
+
 @Composable
 fun AppNavHost(
     navController: NavHostController = rememberNavController(),
     startDestination: String,
-    initialDeepLink: String? = null
+    initialDeepLink: String? = null,
+
+    // true = tampilkan splash
+    // false = langsung ke halaman tujuan
+    showSplash: Boolean = false
+
 ) {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+
     val currentRoute = navBackStackEntry?.destination?.route
 
     // Handle deep link
-    var deepLinkHandled by remember { mutableStateOf(false) }
+    var deepLinkHandled by remember {
+        mutableStateOf(false)
+    }
+
     LaunchedEffect(initialDeepLink, currentRoute) {
-        if (!initialDeepLink.isNullOrBlank() && !deepLinkHandled && currentRoute != Routes.SPLASH && currentRoute != null) {
+
+        if (
+            !initialDeepLink.isNullOrBlank() &&
+            !deepLinkHandled &&
+            currentRoute != Routes.SPLASH &&
+            currentRoute != null
+        ) {
 
             when {
+
                 initialDeepLink.startsWith("kuliahku://task/") -> {
-                    val id = initialDeepLink.removePrefix("kuliahku://task/")
-                    navController.navigate(Routes.submitTask(id))
+
+                    val id = initialDeepLink.removePrefix(
+                        "kuliahku://task/"
+                    )
+
+                    navController.navigate(
+                        Routes.submitTask(id)
+                    )
                 }
 
                 initialDeepLink.startsWith("kuliahku://event/") -> {
-                    val id = initialDeepLink.removePrefix("kuliahku://event/")
+
+                    val id = initialDeepLink.removePrefix(
+                        "kuliahku://event/"
+                    )
+
                     val today =
                         com.kuliahku.data.repository.EventRepository.keyOf(
                             java.util.Calendar.getInstance()
                         )
 
-                    navController.navigate("add_event?editId=$id&date=$today")
+                    navController.navigate(
+                        "add_event?editId=$id&date=$today"
+                    )
                 }
             }
+
             deepLinkHandled = true
         }
     }
 
-    val showBottomBar = currentRoute in bottomNavItems.map { it.route }
+    // Cek apakah bottom navigation perlu ditampilkan
+    val showBottomBar = currentRoute in bottomNavItems.map {
+        it.route
+    }
 
     Box(
         modifier = Modifier
@@ -129,7 +161,15 @@ fun AppNavHost(
 
         NavHost(
             navController = navController,
-            startDestination = Routes.SPLASH,
+
+            // PERBAIKAN UTAMA:
+            // Jangan selalu memulai dari Routes.SPLASH.
+            startDestination = if (showSplash) {
+                Routes.SPLASH
+            } else {
+                startDestination
+            },
+
             modifier = Modifier.fillMaxSize(),
 
             enterTransition = {
@@ -177,28 +217,41 @@ fun AppNavHost(
             composable(
                 route = Routes.SPLASH,
                 exitTransition = {
-                    fadeOut(animationSpec = tween(800))
+                    fadeOut(
+                        animationSpec = tween(800)
+                    )
                 }
             ) {
+
                 KuliahKuSplashScreen(
+
                     onFinished = {
+
                         navController.navigate(startDestination) {
+
                             popUpTo(Routes.SPLASH) {
                                 inclusive = true
                             }
+
+                            launchSingleTop = true
                         }
                     }
                 )
             }
+
 
             // =========================================
             // AUTHENTICATION
             // =========================================
 
             composable(Routes.WELCOME) {
+
                 WelcomeScreen(
+
                     onStart = {
+
                         navController.navigate(Routes.LOGIN) {
+
                             popUpTo(Routes.WELCOME) {
                                 inclusive = true
                             }
@@ -207,100 +260,145 @@ fun AppNavHost(
                 )
             }
 
+
             composable(Routes.LOGIN) {
+
                 LoginScreen(
+
                     onLoginSuccess = {
+
                         navController.navigate(Routes.HOME) {
+
                             popUpTo(Routes.LOGIN) {
                                 inclusive = true
                             }
+
+                            launchSingleTop = true
                         }
                     },
+
                     onNavigateToRegister = {
+
                         navController.navigate(Routes.REGISTER)
                     }
                 )
             }
 
+
             composable(Routes.REGISTER) {
+
                 RegisterScreen(
+
                     onRegisterSuccess = {
+
                         navController.navigate(Routes.HOME) {
+
                             popUpTo(Routes.REGISTER) {
                                 inclusive = true
                             }
+
+                            launchSingleTop = true
                         }
                     },
+
                     onNavigateToLogin = {
+
                         navController.popBackStack()
                     }
                 )
             }
+
 
             // =========================================
             // MAIN TABS
             // =========================================
 
             composable(Routes.HOME) {
+
                 HomeScreen(navController)
             }
 
+
             composable(Routes.SCAN) {
+
                 ScanScreen(navController)
             }
 
+
             composable(Routes.RECORD_AUDIO) {
+
                 RecordAudioScreen(navController)
             }
 
+
             composable(Routes.REFERENCE) {
+
                 ReferenceScreen(navController)
             }
 
+
             composable(Routes.PROFILE) {
+
                 ProfileScreen(navController)
             }
+
 
             // =========================================
             // PROFILE AND SETTINGS
             // =========================================
 
             composable(Routes.EDIT_PROFILE) {
+
                 EditProfileScreen(navController)
             }
 
+
             composable(Routes.SETTINGS) {
+
                 SettingsScreen(navController)
             }
 
+
             composable(Routes.SETTINGS_APPEARANCE) {
+
                 AppearanceSettingsScreen(navController)
             }
 
+
             composable(Routes.SETTINGS_LANGUAGE) {
+
                 LanguageSettingsScreen(navController)
             }
 
+
             composable(Routes.SETTINGS_PRIVACY) {
+
                 PrivacySecurityScreen(navController)
             }
 
+
             composable(Routes.NOTIFICATIONS_LIST) {
+
                 NotificationListScreen(navController)
             }
+
 
             // =========================================
             // TASKS
             // =========================================
 
             composable(Routes.TASKS) {
+
                 TasksScreen(navController)
             }
 
+
             // Tambah tugas
             composable(Routes.ADD_TASK) {
+
                 AddEditTaskScreen(navController)
             }
+
 
             // Edit tugas
             composable(
@@ -311,8 +409,10 @@ fun AppNavHost(
                     }
                 )
             ) {
+
                 AddEditTaskScreen(navController)
             }
+
 
             // Submit tugas
             composable(
@@ -323,16 +423,20 @@ fun AppNavHost(
                     }
                 )
             ) {
+
                 SubmitTaskScreen(navController)
             }
+
 
             // =========================================
             // NOTES
             // =========================================
 
             composable(Routes.NOTES) {
+
                 NotesScreen(navController)
             }
+
 
             composable(
                 route = "note_edit/{noteId}",
@@ -342,25 +446,31 @@ fun AppNavHost(
                     }
                 )
             ) {
+
                 NoteEditorScreen(navController)
             }
+
 
             // =========================================
             // CALENDAR
             // =========================================
 
             composable(Routes.CALENDAR) {
+
                 CalendarScreen(navController)
             }
+
 
             composable(
                 route = "add_event?editId={editId}&date={date}",
                 arguments = listOf(
+
                     navArgument("editId") {
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null
                     },
+
                     navArgument("date") {
                         type = NavType.StringType
                         nullable = true
@@ -368,16 +478,20 @@ fun AppNavHost(
                     }
                 )
             ) {
+
                 AddEventScreen(navController)
             }
+
 
             // =========================================
             // FINANCE
             // =========================================
 
             composable(Routes.FINANCE) {
+
                 FinanceScreen(navController)
             }
+
 
             composable(
                 route = "add_transaction?editId={editId}",
@@ -389,8 +503,10 @@ fun AppNavHost(
                     }
                 )
             ) {
+
                 AddTransactionScreen(navController)
             }
+
 
             composable(
                 route = Routes.TRANSACTION_DETAIL,
@@ -410,13 +526,18 @@ fun AppNavHost(
                 )
             }
 
+
             composable("transactions_all") {
+
                 TransactionsAllScreen(navController)
             }
 
+
             composable("notification_listener_intro") {
+
                 NotificationListenerIntroScreen(navController)
             }
+
 
             // =========================================
             // MATERIAL RESULT
@@ -430,16 +551,20 @@ fun AppNavHost(
                     }
                 )
             ) {
+
                 MaterialResultScreen(navController)
             }
         }
+
 
         // =============================================
         // FLOATING BOTTOM NAVIGATION
         // =============================================
 
         AnimatedVisibility(
+
             visible = showBottomBar,
+
             enter = fadeIn(
                 tween(500)
             ) + slideInVertically(
@@ -447,6 +572,7 @@ fun AppNavHost(
             ) {
                 it / 2
             },
+
             exit = fadeOut(
                 tween(500)
             ) + slideOutVertically(
@@ -454,11 +580,15 @@ fun AppNavHost(
             ) {
                 it / 2
             },
+
             modifier = Modifier.align(Alignment.BottomCenter)
+
         ) {
 
             FloatingBottomBar(
+
                 currentRoute = currentRoute,
+
                 onNavigate = { route ->
 
                     navController.navigate(route) {
@@ -468,6 +598,7 @@ fun AppNavHost(
                         }
 
                         launchSingleTop = true
+
                         restoreState = true
                     }
                 }
