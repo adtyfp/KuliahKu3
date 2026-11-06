@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FilterAlt
@@ -53,72 +54,23 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // ---------------------------------------------------------------------------
-// Palet Referensi (Light = sesuai Referensi.png, Dark = nilai yang sama dengan Beranda).
-// Mode gelap dideteksi dari MaterialTheme.colorScheme.background.
+// Reference Constants
 // ---------------------------------------------------------------------------
-private class RefPalette(
-    val background: Color,
-    val surface: Color,
-    val border: Color,
-    val textPrimary: Color,
-    val textMuted: Color,
-    val searchBg: Color,
-    val placeholder: Color,
-    val searchIcon: Color,
-    val filterContainer: Color,
-    val filterBorder: Color,
-    val filterIcon: Color,
-    val chipBorder: Color,
-    val chipText: Color,
-    val chipSelected: Color,
-    val divider: Color,
-    val thumb: Color,
-    val accent: Color
-)
+/** Format angka dengan pemisah ribuan titik, mis. 34.573 (sesuai desain). */
+private fun formatNumber(n: Int): String =
+    NumberFormat.getIntegerInstance(Locale("id", "ID")).format(n)
 
-private val RefLight = RefPalette(
-    background = Color(0xFFFBFCFF),
-    surface = Color.White,
-    border = Color(0xFFE2E2E8),
-    textPrimary = Color.Black,
-    textMuted = Color(0xFF777777),
-    searchBg = Color(0xFFF3F3F5),
-    placeholder = Color(0xFF8A8A8A),
-    searchIcon = Color(0xFF6F6F6F),
-    filterContainer = Color(0xFF92CDFF),
-    filterBorder = Color(0xFF0F79DC),
-    filterIcon = Color(0xFF0F79DC),
-    chipBorder = Color(0xFFC9C9CF),
-    chipText = Color(0xFF7B7B7B),
-    chipSelected = Color(0xFF0F79DC),
-    divider = Color(0xFFE1E1E8),
-    thumb = Color(0xFFDBDBDB),
-    accent = Color(0xFF0F79DC)
-)
-
-private val RefDark = RefPalette(
-    background = Color(0xFF0E1220),
-    surface = Color(0xFF171C2C),
-    border = Color(0xFF2A3350),
-    textPrimary = Color(0xFFF1F4FF),
-    textMuted = Color(0xFFA3ABC4),
-    searchBg = Color(0xFF1B2134),
-    placeholder = Color(0xFF7F88A6),
-    searchIcon = Color(0xFFA3ABC4),
-    filterContainer = Color(0xFF16315A),
-    filterBorder = Color(0xFF3B8CFF),
-    filterIcon = Color(0xFF6FB0FF),
-    chipBorder = Color(0xFF2A3350),
-    chipText = Color(0xFFA3ABC4),
-    chipSelected = Color(0xFF0F79DC),
-    divider = Color(0xFF232B45),
-    thumb = Color(0xFF222942),
-    accent = Color(0xFF5AA2FF)
-)
-
-@Composable
-private fun refPalette(): RefPalette =
-    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) RefDark else RefLight
+private fun relativeTime(millis: Long): String {
+    val diff = System.currentTimeMillis() - millis
+    val days = TimeUnit.MILLISECONDS.toDays(diff)
+    return when {
+        days < 1 -> "Hari ini"
+        days < 7 -> "$days Hari yang lalu"
+        days < 30 -> "${days / 7} Minggu yang lalu"
+        days < 365 -> "${days / 30} Bulan yang lalu"
+        else -> "${days / 365} Tahun yang lalu"
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,7 +82,6 @@ fun ReferenceScreen(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
-    val p = refPalette()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { ev ->
@@ -155,20 +106,38 @@ fun ReferenceScreen(
         if (shouldLoadMore) viewModel.loadMore()
     }
 
-    Box(Modifier.fillMaxSize().background(p.background)) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize()) {
-            Spacer(Modifier.height(68.dp))
+            Spacer(Modifier.height(57.dp))
 
-            // ---------------- Judul ----------------
+            // ---------------- Header: Standardized ----------------
             AnimatedEntry(delay = 0) {
-                Text(
-                    "Referensi",
-                    modifier = Modifier.padding(start = 26.dp),
-                    fontSize = 31.sp,
-                    lineHeight = 44.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = p.textPrimary
-                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Referensi",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontSize = 26.sp,
+                                lineHeight = 32.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Cari & simpan referensi jurnal",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
 
@@ -177,58 +146,30 @@ fun ReferenceScreen(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 17.dp, end = 16.dp),
+                        .padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    BasicTextField(
-                        value = state.searchQuery,
-                        onValueChange = viewModel::onSearchChange,
-                        singleLine = true,
-                        textStyle = TextStyle(fontSize = 15.sp, lineHeight = 22.sp, color = p.textPrimary),
-                        cursorBrush = SolidColor(p.textPrimary),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(41.dp)
-                            .clip(CircleShape)
-                            .background(p.searchBg),
-                        decorationBox = { inner ->
-                            Row(
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(start = 25.dp, end = 22.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                                    if (state.searchQuery.isEmpty()) {
-                                        Text("Cari Jurnal", fontSize = 15.sp, lineHeight = 22.sp, color = p.placeholder)
-                                    }
-                                    inner()
-                                }
-                                Icon(
-                                    Icons.Filled.Search,
-                                    contentDescription = null,
-                                    tint = p.searchIcon,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
+                    ReferenceSearchBar(
+                        query = state.searchQuery,
+                        onQueryChange = viewModel::onSearchChange,
+                        modifier = Modifier.weight(1f)
                     )
-                    Spacer(Modifier.width(10.dp))
-                    val filterShape = RoundedCornerShape(10.dp)
+                    Spacer(Modifier.width(12.dp))
+                    val filterShape = CircleShape
                     Box(
                         modifier = Modifier
-                            .size(41.dp)
+                            .size(57.dp)
                             .clip(filterShape)
-                            .background(p.filterContainer)
-                            .border(1.dp, p.filterBorder, filterShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), filterShape)
                             .clickable { viewModel.showFilterSheet(true) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Outlined.FilterAlt,
                             contentDescription = "Filter",
-                            tint = p.filterIcon,
-                            modifier = Modifier.size(26.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -242,14 +183,13 @@ fun ReferenceScreen(
                     Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp),
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ReferenceFilter.entries.forEach { f ->
                         ReferenceChip(
                             label = f.label,
                             selected = state.selectedFilter == f,
-                            palette = p,
                             onClick = { viewModel.setFilter(f) }
                         )
                     }
@@ -261,17 +201,17 @@ fun ReferenceScreen(
                 Column {
                     Box(
                         Modifier
-                            .padding(horizontal = 10.dp)
+                            .padding(horizontal = 20.dp)
                             .fillMaxWidth()
                             .height(1.dp)
-                            .background(p.divider)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                     )
                     Spacer(Modifier.height(19.dp))
 
                     when {
                         state.isLoading -> LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 15.dp)
+                            contentPadding = PaddingValues(horizontal = 20.dp)
                         ) {
                             items(4) { ShimmerBox(Modifier.fillMaxWidth().height(169.dp)) }
                         }
@@ -286,7 +226,7 @@ fun ReferenceScreen(
                         else -> LazyColumn(
                             state = listState,
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(start = 15.dp, end = 15.dp, bottom = 120.dp)
+                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 120.dp)
                         ) {
                             items(state.references, key = { it.id }) { ref ->
                                 ReferenceCard(
@@ -325,26 +265,75 @@ fun ReferenceScreen(
 }
 
 @Composable
-private fun ReferenceChip(label: String, selected: Boolean, palette: RefPalette, onClick: () -> Unit) {
+private fun ReferenceSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .height(57.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+            .padding(start = 16.dp, end = 18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Default.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+            modifier = Modifier.weight(1f),
+            decorationBox = { innerTextField ->
+                if (query.isEmpty()) {
+                    Text(
+                        "Cari Jurnal...",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+                innerTextField()
+            }
+        )
+    }
+}
+
+@Composable
+private fun ReferenceChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .height(35.dp)
+            .height(36.dp)
             .widthIn(min = 59.dp)
             .clip(CircleShape)
             .then(
-                if (selected) Modifier.background(palette.chipSelected)
-                else Modifier.border(1.dp, palette.chipBorder, CircleShape)
+                if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
+                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), CircleShape)
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 11.dp),
+            .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             label,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
+            style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-            color = if (selected) Color.White else palette.chipText,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             maxLines = 1
         )
@@ -358,12 +347,12 @@ private fun ReferenceCard(
     onClick: () -> Unit,
     onBookmark: () -> Unit
 ) {
-    val p = refPalette()
-    val shape = RoundedCornerShape(24.dp)
+    val colorScheme = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.medium
     Surface(
         shape = shape,
-        color = p.surface,
-        border = BorderStroke(1.dp, p.border),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outline.copy(alpha = 0.2f)),
         modifier = Modifier
             .fillMaxWidth()
             .height(169.dp)
@@ -375,9 +364,9 @@ private fun ReferenceCard(
             // Thumbnail / Image area
             Box(
                 Modifier
-                    .width(130.dp) // Sesuaikan lebar agar lebih proporsional seperti cover buku
+                    .width(130.dp)
                     .fillMaxHeight()
-                    .background(p.thumb),
+                    .background(colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 if (!ref.imageUrl.isNullOrBlank()) {
@@ -391,8 +380,7 @@ private fun ReferenceCard(
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                 } else {
-                    // GENERATED COVER (Fallback Estetik)
-                    // Membuat cover buatan dengan gradasi warna berdasarkan ID/Judul
+                    // GENERATED COVER
                     val hash = ref.title.hashCode()
                     val colors = listOf(Color(0xFF4FACFE), Color(0xFF00F2FE), Color(0xFF43E97B), Color(0xFF38F9D7), Color(0xFFFA709A), Color(0xFFFEE140))
                     val color1 = colors[Math.abs(hash) % colors.size]
@@ -425,7 +413,6 @@ private fun ReferenceCard(
                             )
                         }
                         
-                        // Garis hiasan di pinggir agar mirip buku
                         Box(
                             Modifier
                                 .fillMaxHeight()
@@ -440,44 +427,46 @@ private fun ReferenceCard(
                 Column(Modifier.padding(start = 15.dp, top = 17.dp, end = 15.dp)) {
                     Text(
                         ref.title,
-                        fontSize = 13.sp,
-                        lineHeight = 21.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = p.textPrimary,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 21.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            Modifier.size(22.dp).clip(CircleShape).background(Primary),
+                            Modifier.size(22.dp).clip(CircleShape).background(colorScheme.primary),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(ref.firstAuthorInitial, color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
+                            Text(ref.firstAuthorInitial, color = colorScheme.onPrimary, fontSize = 10.sp, lineHeight = 12.sp)
                         }
                         Spacer(Modifier.width(8.dp))
                         Text(
                             ref.firstAuthor + if (ref.authorCount > 1) " et al." else "",
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
-                            color = p.textPrimary,
+                            color = colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.ThumbUp, null, modifier = Modifier.size(18.dp), tint = p.textMuted)
+                        Icon(Icons.Filled.ThumbUp, null, modifier = Modifier.size(18.dp), tint = colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(5.dp))
-                        Text(formatNumber(ref.citedByCount), fontSize = 12.sp, lineHeight = 16.sp, color = p.textMuted)
+                        Text(formatNumber(ref.citedByCount), fontSize = 12.sp, lineHeight = 16.sp, color = colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(16.dp))
-                        Icon(rememberViewStatIcon(), null, modifier = Modifier.size(20.dp), tint = p.textMuted)
+                        Icon(rememberViewStatIcon(), null, modifier = Modifier.size(20.dp), tint = colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(5.dp))
                         Text(
                             if (ref.isOpenAccess) "OA" else "Tertutup",
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
-                            color = p.textMuted
+                            color = colorScheme.onSurfaceVariant
                         )
                     }
                     Spacer(Modifier.height(5.dp))
@@ -485,7 +474,7 @@ private fun ReferenceCard(
                         ref.publishedAtMillis?.let { relativeTime(it) } ?: "-",
                         fontSize = 11.sp,
                         lineHeight = 16.sp,
-                        color = p.textMuted
+                        color = colorScheme.onSurfaceVariant
                     )
                 }
                 Box(
@@ -500,7 +489,7 @@ private fun ReferenceCard(
                     Icon(
                         if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                         contentDescription = "Bookmark",
-                        tint = p.accent,
+                        tint = colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -549,10 +538,10 @@ private fun FilterSheetContent(
     onOpenAccess: (Boolean) -> Unit,
     onSort: (SortOrder) -> Unit
 ) {
-    val p = refPalette()
+    val colorScheme = MaterialTheme.colorScheme
     Column(Modifier.padding(24.dp)) {
         AnimatedEntry(delay = 0, duration = 250) {
-            Text("Urutkan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = p.textPrimary)
+            Text("Urutkan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
         }
         Spacer(Modifier.height(16.dp))
         
@@ -563,7 +552,6 @@ private fun FilterSheetContent(
                         FilterChipModern(
                             label = s.label,
                             selected = state.sortOrder == s,
-                            p = p,
                             modifier = Modifier.weight(1f),
                             onClick = { onSort(s) }
                         )
@@ -575,7 +563,6 @@ private fun FilterSheetContent(
                         FilterChipModern(
                             label = s.label,
                             selected = state.sortOrder == s,
-                            p = p,
                             modifier = Modifier.weight(1f),
                             onClick = { onSort(s) }
                         )
@@ -586,7 +573,7 @@ private fun FilterSheetContent(
 
         Spacer(Modifier.height(24.dp))
         AnimatedEntry(delay = 100, duration = 250) {
-            Text("Tahun Terbit", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = p.textPrimary)
+            Text("Tahun Terbit", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
         }
         Spacer(Modifier.height(16.dp))
         
@@ -610,7 +597,6 @@ private fun FilterSheetContent(
                             FilterChipModern(
                                 label = label,
                                 selected = state.yearFrom == from && state.yearTo == to,
-                                p = p,
                                 modifier = Modifier.weight(1f),
                                 onClick = { onYearRange(from, to) }
                             )
@@ -624,7 +610,7 @@ private fun FilterSheetContent(
         AnimatedEntry(delay = 200, duration = 250) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = p.searchBg,
+                color = colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -632,15 +618,15 @@ private fun FilterSheetContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Hanya Akses Terbuka", fontWeight = FontWeight.SemiBold, color = p.textPrimary)
-                        Text("Tampilkan jurnal yang bisa dibaca penuh", fontSize = 12.sp, color = p.textMuted)
+                        Text("Hanya Akses Terbuka", fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
+                        Text("Tampilkan jurnal yang bisa dibaca penuh", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                     }
                     Switch(
                         checked = state.onlyOpenAccess, 
                         onCheckedChange = onOpenAccess,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = p.accent
+                            checkedTrackColor = colorScheme.primary
                         )
                     )
                 }
@@ -654,41 +640,25 @@ private fun FilterSheetContent(
 private fun FilterChipModern(
     label: String,
     selected: Boolean,
-    p: RefPalette,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Surface(
         selected = selected,
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
-        color = if (selected) p.accent else p.searchBg,
-        border = if (selected) null else BorderStroke(1.dp, p.border),
+        color = if (selected) colorScheme.primary else colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = if (selected) null else BorderStroke(1.dp, colorScheme.outline.copy(alpha = 0.2f)),
         modifier = modifier.height(44.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 label,
-                color = if (selected) Color.White else p.textPrimary,
+                color = if (selected) colorScheme.onPrimary else colorScheme.onSurface,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 fontSize = 14.sp
             )
         }
-    }
-}
-
-/** Format angka dengan pemisah ribuan titik, mis. 34.573 (sesuai desain). */
-private fun formatNumber(n: Int): String =
-    NumberFormat.getIntegerInstance(Locale("id", "ID")).format(n)
-
-private fun relativeTime(millis: Long): String {
-    val diff = System.currentTimeMillis() - millis
-    val days = TimeUnit.MILLISECONDS.toDays(diff)
-    return when {
-        days < 1 -> "Hari ini"
-        days < 7 -> "$days Hari yang lalu"
-        days < 30 -> "${days / 7} Minggu yang lalu"
-        days < 365 -> "${days / 30} Bulan yang lalu"
-        else -> "${days / 365} Tahun yang lalu"
     }
 }

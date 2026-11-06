@@ -39,8 +39,7 @@ class MaterialRepository @Inject constructor(
         
         android.util.Log.d("MaterialRepository", "Starting observeAll for UID: $uid")
         
-        val query = col(uid)
-        // Kita gunakan query sederhana tanpa orderBy untuk memastikan data bisa ditarik
+        val query = col(uid).orderBy("createdAt", Query.Direction.DESCENDING)
         val listener = query.addSnapshotListener { snap, err ->
             if (err != null) { 
                 android.util.Log.e("MaterialRepository", "SNAPSHOT ERROR [$uid]: ${err.code} - ${err.message}", err)

@@ -10,7 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -18,17 +18,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.layout
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.draw.shadow
 import com.kuliahku.R
 import com.kuliahku.ui.components.AnimatedEntry
 import com.kuliahku.ui.components.KuliahkuLogo
 import com.kuliahku.ui.components.PillTextField
 import com.kuliahku.ui.components.PrimaryPillButton
-import com.kuliahku.ui.theme.cardShadow
 
 @Composable
 fun LoginScreen(
@@ -48,46 +44,50 @@ fun LoginScreen(
         }
     }
 
+    // Tidak ada horizontal padding di root, supaya ilustrasi bisa full-bleed.
+    // Padding 24dp hanya diberikan ke bagian teks & form.
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
-            .padding(horizontal = 24.dp),
+            .statusBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(32.dp))
+        // ===== HEADER: Ilustrasi full width + logo menumpuk di tengah atas =====
         AnimatedEntry(delay = 100) {
-            KuliahkuLogo(modifier = Modifier.height(32.dp))
-        }
-        
-        Spacer(Modifier.height(24.dp))
-        
-        // Ilustrasi Login dibuat Full Width (mentok kanan kiri)
-        AnimatedEntry(delay = 200) {
-            Image(
-                painter = painterResource(id = R.drawable.img_auth),
-                contentDescription = null,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .layout { measurable, constraints ->
-                        val placeable = measurable.measure(
-                            constraints.copy(
-                                maxWidth = constraints.maxWidth + 48.dp.roundToPx()
-                            )
-                        )
-                        layout(placeable.width, placeable.height) {
-                            placeable.place(-24.dp.roundToPx(), 0)
-                        }
-                    }
-                    .height(250.dp)
-            )
+                    .padding(top = 16.dp)
+            ) {
+                // Ilustrasi (sudah berisi ikon-ikon melayang) mentok kiri-kanan,
+                // tinggi mengikuti rasio asli gambar agar tidak gepeng/terpotong.
+                Image(
+                    painter = painterResource(id = R.drawable.ic_login),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Logo di tengah atas, sejajar dengan ikon sparkle di referensi
+                KuliahkuLogo(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 8.dp)
+                        .height(32.dp)
+                )
+            }
         }
-        
-        Spacer(Modifier.height(16.dp))
-        
-        AnimatedEntry(delay = 300) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+        // ===== JUDUL =====
+        AnimatedEntry(delay = 200) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
                     text = "Selamat datang",
                     style = MaterialTheme.typography.headlineLarge,
@@ -95,6 +95,8 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
+
+                Spacer(Modifier.height(4.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -104,68 +106,88 @@ fun LoginScreen(
                     Text("Belum Punya Akun? ", style = MaterialTheme.typography.bodyMedium)
                     ClickableText(
                         text = buildAnnotatedString {
-                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)) {
-                                append("Registrasi")
-                            }
+                            withStyle(
+                                SpanStyle(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            ) { append("Registrasi") }
                         },
                         onClick = { onNavigateToRegister() }
                     )
                 }
             }
         }
-        
-        Spacer(Modifier.height(32.dp))
 
-        AnimatedEntry(delay = 400) {
-            PillTextField(
-                value = state.identifier,
-                onValueChange = viewModel::onIdentifierChange,
-                placeholder = "Email/NIM",
-                error = state.identifierError
-            )
-        }
-        
-        Spacer(Modifier.height(20.dp))
-        
-        AnimatedEntry(delay = 500) {
-            PillTextField(
-                value = state.password,
-                onValueChange = viewModel::onPasswordChange,
-                placeholder = "Password",
-                isPassword = true,
-                error = state.passwordError
-            )
-        }
+        Spacer(Modifier.height(28.dp))
 
-        state.generalError?.let {
-            Spacer(Modifier.height(12.dp))
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-        }
-
-        Spacer(Modifier.height(32.dp))
-        
-        AnimatedEntry(delay = 600) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                PrimaryPillButton(
-                    text = if (state.isLoading) "Memuat..." else "Login",
-                    onClick = viewModel::login,
-                    enabled = !state.isLoading,
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                ClickableText(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))) {
-                            append("Lupa password kamu?")
-                        }
-                    },
-                    onClick = { viewModel.showResetDialog(true) }
+        // ===== FORM =====
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AnimatedEntry(delay = 300) {
+                PillTextField(
+                    value = state.identifier,
+                    onValueChange = viewModel::onIdentifierChange,
+                    placeholder = "Email/NIM",
+                    error = state.identifierError
                 )
             }
+
+            Spacer(Modifier.height(16.dp))
+
+            AnimatedEntry(delay = 400) {
+                PillTextField(
+                    value = state.password,
+                    onValueChange = viewModel::onPasswordChange,
+                    placeholder = "Password",
+                    isPassword = true,
+                    error = state.passwordError
+                )
+            }
+
+            state.generalError?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            AnimatedEntry(delay = 500) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    PrimaryPillButton(
+                        text = if (state.isLoading) "Memuat..." else "Login",
+                        onClick = viewModel::login,
+                        enabled = !state.isLoading,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    ClickableText(
+                        text = buildAnnotatedString {
+                            withStyle(
+                                SpanStyle(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            ) { append("Lupa password kamu?") }
+                        },
+                        onClick = { viewModel.showResetDialog(true) }
+                    )
+                }
+            }
         }
-        
+
         Spacer(Modifier.height(32.dp))
     }
 }

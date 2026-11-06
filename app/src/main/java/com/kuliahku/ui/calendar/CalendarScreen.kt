@@ -8,6 +8,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +63,8 @@ import java.util.Calendar
 // ─────────────────────────────────────────────────────────────────────────────
 private class CalPalette(
     val background: Color,
+    val surface: Color,
+    val border: Color,
     val textPrimary: Color,
     val textSecondary: Color,
     val mutedDay: Color,
@@ -75,6 +79,8 @@ private class CalPalette(
 
 private val LightCalPalette = CalPalette(
     background = Color(0xFFFBFCFF),
+    surface = Color.White,
+    border = Color(0xFFE6E8EE),
     textPrimary = Color.Black,
     textSecondary = Color(0xFF767678),
     mutedDay = Color(0xFFB4B6BC),
@@ -89,6 +95,8 @@ private val LightCalPalette = CalPalette(
 
 private val DarkCalPalette = CalPalette(
     background = Color(0xFF0E1220),
+    surface = Color(0xFF171C2C),
+    border = Color(0xFF2A3350),
     textPrimary = Color(0xFFF1F4FF),
     textSecondary = Color(0xFFA3ABC4),
     mutedDay = Color(0xFF555E7C),
@@ -211,232 +219,255 @@ fun CalendarScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
         ) {
             Spacer(Modifier.height(57.dp))
 
-            // ── Header (ikon tengah y=75, judul x=60) ──────────────────────────
+            // ── Header: tombol kembali bulat, judul + ringkasan ──
             AnimatedEntry(delay = 0) {
                 Row(
-                    Modifier.fillMaxWidth().padding(start = 14.dp, top = 10.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Filled.ArrowBackIosNew, "Kembali", Modifier.size(22.dp), tint = p.textPrimary)
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(p.surface, CircleShape)
+                            .border(1.dp, p.border, CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Filled.ArrowBackIosNew,
+                            contentDescription = "Kembali",
+                            modifier = Modifier.size(16.dp),
+                            tint = p.textPrimary
+                        )
                     }
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        "Kalender",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontSize = 26.sp,
-                            lineHeight = 36.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = p.textPrimary
-                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Kalender",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontSize = 26.sp,
+                                lineHeight = 32.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = p.textPrimary
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(25.dp))
 
-            // ── Bulan & tahun + panah (nama bulan x=38, panah tengah x=340 / 383) ──
-            AnimatedEntry(delay = 100) {
-                Row(
-                    Modifier.fillMaxWidth().padding(end = 37.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f).padding(start = 38.dp)) {
-                        Text(
-                            state.currentMonth.getDisplayName(Calendar.MONTH, Calendar.LONG, java.util.Locale("id", "ID"))
-                                ?.replaceFirstChar { it.uppercase() } ?: "",
-                            fontSize = 24.sp,
-                            lineHeight = 30.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = p.plusButton
-                        )
-                        Text(
-                            state.currentMonth.get(Calendar.YEAR).toString(),
-                            fontSize = 14.sp,
-                            lineHeight = 16.sp,
-                            color = p.textSecondary
-                        )
-                    }
-                    IconButton(onClick = viewModel::previousMonth, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Filled.ChevronLeft, "Sebelumnya", Modifier.size(32.dp), tint = p.textPrimary)
-                    }
-                    Spacer(Modifier.width(3.dp))
-                    IconButton(onClick = viewModel::nextMonth, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Filled.ChevronRight, "Berikutnya", Modifier.size(32.dp), tint = p.textPrimary)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ── Nama hari (tengah y=186) + grid tanpa kartu (kolom 58,5 dp mulai x=16) ──
-            // Huruf pertama (M = Minggu) berwarna merah.
-            AnimatedEntry(delay = 200) {
-                Column {
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp)) {
-                        listOf("M", "S", "S", "R", "K", "J", "S").forEachIndexed { index, d ->
-                            Text(
-                                d,
-                                modifier = Modifier.weight(1f),
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp,
-                                textAlign = TextAlign.Center,
-                                fontWeight = FontWeight.Bold,
-                                color = if (index == 0) p.holiday else p.textPrimary
-                            )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 40.dp)
+            ) {
+                // ── Bulan & tahun + panah ──
+                item(key = "month_selector") {
+                    AnimatedEntry(delay = 100) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(end = 37.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f).padding(start = 38.dp)) {
+                                Text(
+                                    state.currentMonth.getDisplayName(Calendar.MONTH, Calendar.LONG, java.util.Locale("id", "ID"))
+                                        ?.replaceFirstChar { it.uppercase() } ?: "",
+                                    fontSize = 24.sp,
+                                    lineHeight = 30.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = p.plusButton
+                                )
+                                Text(
+                                    state.currentMonth.get(Calendar.YEAR).toString(),
+                                    fontSize = 14.sp,
+                                    lineHeight = 16.sp,
+                                    color = p.textSecondary
+                                )
+                            }
+                            IconButton(onClick = viewModel::previousMonth, modifier = Modifier.size(40.dp)) {
+                                Icon(Icons.Filled.ChevronLeft, "Sebelumnya", Modifier.size(32.dp), tint = p.textPrimary)
+                            }
+                            Spacer(Modifier.width(3.dp))
+                            IconButton(onClick = viewModel::nextMonth, modifier = Modifier.size(40.dp)) {
+                                Icon(Icons.Filled.ChevronRight, "Berikutnya", Modifier.size(32.dp), tint = p.textPrimary)
+                            }
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    
-                    // Garis mendatar di bawah nama hari (seperti divider agenda)
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .height(1.dp)
-                            .background(p.divider.copy(alpha = 0.5f))
-                    )
-                    
-                    Spacer(Modifier.height(8.dp))
-                    
-                    // Animasi bergeser saat ganti bulan
-                    val monthTime = state.currentMonth.timeInMillis
-                    AnimatedContent(
-                        targetState = monthTime,
-                        transitionSpec = {
-                            if (targetState > initialState) {
-                                // Geser ke kiri (bulan depan)
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
-                            } else {
-                                // Geser ke kanan (bulan sebelumnya)
-                                (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
-                            }
-                        },
-                        label = "MonthSlide"
-                    ) { _ ->
-                        MonthGrid(
-                            month = state.currentMonth,
-                            selectedDate = state.selectedDate,
-                            daysWithEntries = state.daysWithEntries,
-                            p = p,
-                            modifier = Modifier.padding(start = 16.dp, end = 14.dp),
-                            onSelect = { viewModel.selectDate(it) }
-                        )
-                    }
                 }
-            }
 
-            Spacer(Modifier.height(17.dp))
-
-            // ── Tanggal terpilih + tombol tambah (36 dp, radius 10, x=372..408) ──
-            AnimatedEntry(delay = 300) {
-                Column {
-                    val selectedKey = EventRepository.keyOf(state.selectedDate)
-                    val todayKey = EventRepository.keyOf(Calendar.getInstance())
-                    val dateText = DateFormatters.formatDayLong(state.selectedDate.time)
-                    val holidayName = NationalHolidays.nameOf(state.selectedDate)
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 31.dp, end = 32.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                buildAnnotatedString {
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(dateText) }
-                                    if (selectedKey == todayKey) append(", hari ini")
-                                },
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp,
-                                color = p.textPrimary
-                            )
-                            // Nama hari libur (hanya libur nasional)
-                            if (holidayName != null) {
-                                Text(
-                                    holidayName,
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = p.holiday
-                                )
-                            }
-                        }
-                        Box(
-                            Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(p.plusButton)
-                                .clickable {
-                                    val key = EventRepository.keyOf(state.selectedDate)
-                                    navController.navigate("add_event?date=$key")
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Filled.Add, "Tambah", Modifier.size(30.dp), tint = Color.White)
-                        }
-                    }
-
-                    Spacer(Modifier.height(11.dp))
-
-                    // ── Daftar agenda: garis 2 dp (x=29..412), pitch item 111 ───────────────
-                    Column(Modifier.fillMaxWidth()) {
-                        Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(1.5.dp).background(p.divider.copy(alpha = 0.5f)))
-                        
-                        if (state.selectedDayEntries.isEmpty()) {
-                            Text(
-                                "Tidak ada agenda pada tanggal ini.",
-                                fontSize = 14.sp,
-                                color = p.textSecondary,
-                                modifier = Modifier.padding(start = 38.dp, top = 16.dp, bottom = 16.dp)
-                            )
-                        } else {
-                            state.selectedDayEntries.forEach { entry ->
-                                when (entry) {
-                                    is CalendarEntry.Acara -> AgendaItem(
-                                        icon = when (entry.event.typeEnum) {
-                                            EventType.ACARA -> Icons.Outlined.CalendarToday
-                                            EventType.PENGINGAT -> Icons.Outlined.NotificationsNone
-                                            EventType.TARGET -> Icons.Outlined.PieChart
-                                        },
-                                        showDot = entry.event.typeEnum == EventType.PENGINGAT,
-                                        typeLabel = when (entry.event.typeEnum) {
-                                            EventType.ACARA -> "Acara"
-                                            EventType.PENGINGAT -> "Mengingatkan"
-                                            EventType.TARGET -> "Target"
-                                        },
-                                        title = entry.title,
-                                        timeRange = "${DateFormatters.formatTime(java.util.Date(entry.startMillis))} - ${DateFormatters.formatTime(java.util.Date(entry.endMillis))} WIB",
-                                        p = p,
-                                        onClick = {
-                                            val key = EventRepository.keyOf(state.selectedDate)
-                                            navController.navigate("add_event?editId=${entry.event.id}&date=$key")
-                                        },
-                                        onLongClick = {
-                                            val key = EventRepository.keyOf(state.selectedDate)
-                                            viewModel.requestDelete(entry.event, key)
-                                        }
-                                    )
-                                    is CalendarEntry.Tugas -> AgendaItem(
-                                        icon = Icons.Outlined.RadioButtonUnchecked,
-                                        showDot = false,
-                                        typeLabel = "Tugas",
-                                        title = entry.title,
-                                        timeRange = "${DateFormatters.formatTime(java.util.Date(entry.startMillis))} WIB",
-                                        p = p,
-                                        onClick = { navController.navigate(Routes.submitTask(entry.task.id)) },
-                                        onLongClick = { }
+                // ── Nama hari + grid ──
+                item(key = "calendar_grid") {
+                    AnimatedEntry(delay = 200) {
+                        Column {
+                            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp)) {
+                                listOf("M", "S", "S", "R", "K", "J", "S").forEachIndexed { index, d ->
+                                    Text(
+                                        d,
+                                        modifier = Modifier.weight(1f),
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp,
+                                        textAlign = TextAlign.Center,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (index == 0) p.holiday else p.textPrimary
                                     )
                                 }
                             }
+                            Spacer(Modifier.height(12.dp))
+                            
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .height(1.dp)
+                                    .background(p.divider.copy(alpha = 0.5f))
+                            )
+                            
+                            Spacer(Modifier.height(8.dp))
+                            
+                            val monthTime = state.currentMonth.timeInMillis
+                            AnimatedContent(
+                                targetState = monthTime,
+                                transitionSpec = {
+                                    if (targetState > initialState) {
+                                        (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
+                                    } else {
+                                        (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
+                                    }
+                                },
+                                label = "MonthSlide"
+                            ) { _ ->
+                                MonthGrid(
+                                    month = state.currentMonth,
+                                    selectedDate = state.selectedDate,
+                                    daysWithEntries = state.daysWithEntries,
+                                    p = p,
+                                    modifier = Modifier.padding(start = 16.dp, end = 14.dp),
+                                    onSelect = { viewModel.selectDate(it) }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(17.dp))
+                }
+
+                // ── Tanggal terpilih + tombol tambah ──
+                item(key = "date_info") {
+                    AnimatedEntry(delay = 300) {
+                        Column {
+                            val selectedKey = EventRepository.keyOf(state.selectedDate)
+                            val todayKey = EventRepository.keyOf(Calendar.getInstance())
+                            val dateText = DateFormatters.formatDayLong(state.selectedDate.time)
+                            val holidayName = NationalHolidays.nameOf(state.selectedDate)
+                            Row(
+                                Modifier.fillMaxWidth().padding(start = 31.dp, end = 32.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        buildAnnotatedString {
+                                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(dateText) }
+                                            if (selectedKey == todayKey) append(", hari ini")
+                                        },
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp,
+                                        color = p.textPrimary
+                                    )
+                                    if (holidayName != null) {
+                                        Text(
+                                            holidayName,
+                                            fontSize = 13.sp,
+                                            lineHeight = 18.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = p.holiday
+                                        )
+                                    }
+                                }
+                                Box(
+                                    Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(p.plusButton)
+                                        .clickable {
+                                            val key = EventRepository.keyOf(state.selectedDate)
+                                            navController.navigate("add_event?date=$key")
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Filled.Add, "Tambah", Modifier.size(30.dp), tint = Color.White)
+                                }
+                            }
+
+                            Spacer(Modifier.height(11.dp))
+                            Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp).height(1.5.dp).background(p.divider.copy(alpha = 0.5f)))
+                        }
+                    }
+                }
+
+                // ── Daftar agenda ──
+                if (state.selectedDayEntries.isEmpty()) {
+                    item {
+                        Text(
+                            "Tidak ada agenda pada tanggal ini.",
+                            fontSize = 14.sp,
+                            color = p.textSecondary,
+                            modifier = Modifier.padding(start = 38.dp, top = 16.dp, bottom = 16.dp)
+                        )
+                    }
+                } else {
+                    items(
+                        items = state.selectedDayEntries,
+                        key = { entry ->
+                            when (entry) {
+                                is CalendarEntry.Acara -> "event_${entry.event.id}"
+                                is CalendarEntry.Tugas -> "task_${entry.task.id}"
+                            }
+                        },
+                        contentType = { "agenda_item" }
+                    ) { entry ->
+                        AnimatedEntry {
+                            when (entry) {
+                                is CalendarEntry.Acara -> AgendaItem(
+                                    icon = when (entry.event.typeEnum) {
+                                        EventType.ACARA -> Icons.Outlined.CalendarToday
+                                        EventType.PENGINGAT -> Icons.Outlined.NotificationsNone
+                                        EventType.TARGET -> Icons.Outlined.PieChart
+                                    },
+                                    showDot = entry.event.typeEnum == EventType.PENGINGAT,
+                                    typeLabel = when (entry.event.typeEnum) {
+                                        EventType.ACARA -> "Acara"
+                                        EventType.PENGINGAT -> "Mengingatkan"
+                                        EventType.TARGET -> "Target"
+                                    },
+                                    title = entry.title,
+                                    timeRange = "${DateFormatters.formatTime(java.util.Date(entry.startMillis))} - ${DateFormatters.formatTime(java.util.Date(entry.endMillis))} WIB",
+                                    p = p,
+                                    onClick = {
+                                        val key = EventRepository.keyOf(state.selectedDate)
+                                        navController.navigate("add_event?editId=${entry.event.id}&date=$key")
+                                    },
+                                    onLongClick = {
+                                        val key = EventRepository.keyOf(state.selectedDate)
+                                        viewModel.requestDelete(entry.event, key)
+                                    }
+                                )
+                                is CalendarEntry.Tugas -> AgendaItem(
+                                    icon = Icons.Outlined.RadioButtonUnchecked,
+                                    showDot = false,
+                                    typeLabel = "Tugas",
+                                    title = entry.title,
+                                    timeRange = "${DateFormatters.formatTime(java.util.Date(entry.startMillis))} WIB",
+                                    p = p,
+                                    onClick = { navController.navigate(Routes.submitTask(entry.task.id)) },
+                                    onLongClick = { }
+                                )
+                            }
                         }
                     }
                 }
             }
-
-            Spacer(Modifier.height(40.dp))
         }
     }
 

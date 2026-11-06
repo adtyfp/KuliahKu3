@@ -166,17 +166,17 @@ fun FloatingBottomBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp) // Bar dibuat lebih lebar
-            .cardShadow(shapeRadius = 30.dp, blurRadius = 35.dp, offsetY = 12.dp),
-        shape = RoundedCornerShape(30.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .cardShadow(shapeRadius = 24.dp),
+        shape = RoundedCornerShape(24.dp),
         color = p.surface,
         border = p.border?.let { BorderStroke(1.dp, it) }
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(4.dp) 
-                .height(74.dp) // Tinggi ditingkatkan agar lebih lega
+                .padding(2.dp) 
+                .height(64.dp)
         ) {
             val itemWidth = maxWidth / bottomNavItems.size
             
@@ -236,9 +236,9 @@ fun FloatingBottomBar(
                             icon,
                             contentDescription = item.label,
                             tint = tint,
-                            modifier = Modifier.size(26.dp) // Ukuran ikon diperbesar sedikit
+                            modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp)) // Jarak antar ikon & teks
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             item.label,
                             style = MaterialTheme.typography.labelSmall,

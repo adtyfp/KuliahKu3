@@ -52,14 +52,16 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val deadlineDate = Date(deadline)
         val body = when (tag) {
-            "H-1" -> "Deadline mendekat! Tugas \"$title\" harus dikumpulkan besok pukul ${DateFormatters.formatTime(deadlineDate)}."
+            "PRIORITY_HIGH" -> "Prioritas tugas \"$title\" kini meningkat menjadi TINGGI! Segera selesaikan sebelum besok."
+            "PRIORITY_MEDIUM" -> "Tugas \"$title\" kini masuk kategori prioritas SEDANG. Deadline tinggal 3 hari lagi."
             "H-2jam" -> "Deadline 2 jam lagi! Segera selesaikan tugas \"$title\" sebelum pukul ${DateFormatters.formatTime(deadlineDate)}."
             "OVERDUE" -> "Tugas \"$title\" telah melewati batas pengumpulan pada ${DateFormatters.formatDateTime(deadlineDate)}."
             else -> "Pengingat tugas \"$title\"."
         }
 
         val notificationTitle = when (tag) {
-            "H-1" -> "Deadline Besok"
+            "PRIORITY_HIGH" -> "Prioritas Meningkat: TINGGI"
+            "PRIORITY_MEDIUM" -> "Prioritas Meningkat: SEDANG"
             "H-2jam" -> "Deadline 2 Jam Lagi"
             "OVERDUE" -> "Tugas Terlambat"
             else -> "Deadline Tugas"

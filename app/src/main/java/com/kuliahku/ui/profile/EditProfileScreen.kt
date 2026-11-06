@@ -16,6 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -53,6 +55,7 @@ fun EditProfileScreen(
     }
 
     Scaffold(
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF0E1220) else Color(0xFFFBFCFF),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Row(
@@ -64,6 +67,7 @@ fun EditProfileScreen(
                 IconButton(
                     onClick = { navController.popBackStack() },
                     modifier = Modifier.size(48.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
                 ) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")
                 }

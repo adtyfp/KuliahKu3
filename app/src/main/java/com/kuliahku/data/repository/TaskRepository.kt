@@ -63,36 +63,43 @@ class TaskRepository @Inject constructor(
 
     private fun cleanupOldTasks(uid: String) {
         val now = System.currentTimeMillis()
-        val oneDayAgo = now - (24 * 60 * 60 * 1000)
 
         tasksCollection(uid).get().addOnSuccessListener { snapshot ->
+            val batch = firestore.batch()
+            var hasUpdates = false
+            
             for (doc in snapshot.documents) {
                 val task = doc.toObject(Task::class.java) ?: continue
                 val deadline = task.deadline?.toDate()?.time ?: 0L
                 
-                // Aturan Hapus Otomatis:
-                // 1. Jika tugas sudah DONE dan deadline sudah lewat 1 hari
-                // 2. Jika tugas LATE (belum dikerjakan) dan deadline sudah lewat 7 hari (opsional, agar tidak langsung hilang)
-                if (task.statusEnum == TaskStatus.DONE && deadline < oneDayAgo) {
-                    doc.reference.delete()
+                // 1. Jika tugas DONE dan deadline sudah lewat -> Hapus seketika
+                if (task.statusEnum == TaskStatus.DONE && deadline < now) {
+                    batch.delete(doc.reference)
+                    hasUpdates = true
+                }
+                
+                // 2. Jika tugas TODO tapi deadline sudah lewat -> Tandai LATE di DB jika belum
+                if (task.statusEnum == TaskStatus.TODO && deadline < now && task.status != TaskStatus.LATE.value) {
+                    batch.update(doc.reference, "status", TaskStatus.LATE.value)
+                    hasUpdates = true
                 }
             }
+            if (hasUpdates) batch.commit()
         }
     }
 
     /** Semua tugas user untuk ditampilkan di UI (dengan filter). */
     fun observeAllTasks(): Flow<List<Task>> = observeTasksRaw().map { items ->
-        val (todayStart, _) = todayRange()
+        val now = System.currentTimeMillis()
+        
         items.filter { task ->
             val deadlineTime = task.deadline?.toDate()?.time ?: 0L
             val isDone = task.statusEnum == TaskStatus.DONE
-            val submittedTime = task.submittedAt?.toDate()?.time ?: 0L
 
-            // Tampilkan jika:
-            // 1. Belum selesai (TODO atau LATE)
-            // 2. Selesai tapi deadline-nya hari ini atau nanti
-            // 3. Selesai hari ini (agar progres card & daftar tugas tidak langsung hilang)
-            !isDone || deadlineTime >= todayStart || submittedTime >= todayStart
+            // Logika Tampilan:
+            // 1. Tugas yang belum selesai (TODO atau LATE) - SELALU TAMPIL
+            // 2. Tugas yang DONE - TAMPIL HANYA JIKA deadline belum lewat
+            !isDone || deadlineTime >= now
         }
     }
 
@@ -112,11 +119,14 @@ class TaskRepository @Inject constructor(
             list.filter { it.statusEnum == TaskStatus.TODO && (it.deadline?.toDate()?.time ?: 0L) > end }
         }
 
-    /** Tugas terlambat (belum selesai, deadline < sekarang). */
+    /** Tugas terlambat (LATE atau TODO yang sudah lewat deadline). */
     fun observeOverdueTasks(): Flow<List<Task>> =
         observeAllTasks().map { list ->
             val now = System.currentTimeMillis()
-            list.filter { it.statusEnum == TaskStatus.TODO && (it.deadline?.toDate()?.time ?: Long.MAX_VALUE) < now }
+            list.filter { 
+                (it.statusEnum == TaskStatus.LATE || it.statusEnum == TaskStatus.TODO) && 
+                (it.deadline?.toDate()?.time ?: Long.MAX_VALUE) < now 
+            }
         }
 
     fun observeTask(taskId: String): Flow<Task?> = callbackFlow {

@@ -1,9 +1,7 @@
 package com.kuliahku.ui.notes
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -23,12 +21,19 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,107 +73,110 @@ fun NotesScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 0.dp)
         ) {
-            // ── Header (sesuai Catatan.png): chevron di x=33..45, judul "Catatan" di x=61,
-            //    keduanya berpusat di y=75. Tombol 36 dp mulai x=22 (= 16 padding + 6). ──
-            AnimatedEntry(delay = 0) {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 18.dp, top = 16.dp, end = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Spacer(Modifier.height(57.dp))
+
+            // ── Header: tombol kembali bulat, judul + ringkasan ──
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        if (state.selectedNoteIds.isNotEmpty()) viewModel.clearSelection()
+                        else navController.popBackStack()
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
                 ) {
+                    Icon(
+                        if (state.selectedNoteIds.isNotEmpty()) Icons.Default.Close else Icons.Default.ArrowBackIosNew,
+                        contentDescription = "Kembali",
+                        modifier = Modifier.size(if (state.selectedNoteIds.isNotEmpty()) 22.dp else 16.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (state.selectedNoteIds.isNotEmpty()) "${state.selectedNoteIds.size} Terpilih" else "Catatan",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontSize = 26.sp,
+                            lineHeight = 32.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     if (state.selectedNoteIds.isNotEmpty()) {
-                        IconButton(
-                            onClick = { viewModel.clearSelection() },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = "Batal Pilih",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
                         Text(
-                            "${state.selectedNoteIds.size} dipilih",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        )
-                        Spacer(Modifier.weight(1f))
-                        IconButton(
-                            onClick = { viewModel.deleteSelected() },
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Hapus", tint = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        IconButton(
-                            onClick = { navController.popBackStack() },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Filled.ArrowBackIosNew,
-                                contentDescription = "Kembali",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "Catatan",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontSize = 24.sp,
-                                lineHeight = 32.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            "Ketuk hapus untuk menghapus",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
-            Spacer(Modifier.height(4.dp))
 
-            AnimatedEntry(delay = 100) {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        state.filter.label,
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { viewModel.showFilterMenu(true) }
-                    )
-                    Spacer(Modifier.weight(1f))
-                    IconButton(
-                        onClick = viewModel::toggleLayout,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            if (state.layout == NoteLayout.GRID) Icons.Filled.ViewList else Icons.Filled.GridView,
-                            contentDescription = "Ubah tata letak",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                if (state.selectedNoteIds.isEmpty()) {
                     IconButton(
                         onClick = { viewModel.showFilterMenu(true) },
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
                     ) {
                         Icon(
                             Icons.Filled.FilterList,
                             contentDescription = "Filter",
-                            modifier = Modifier.size(24.dp)
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    IconButton(
+                        onClick = viewModel::toggleLayout,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                    ) {
+                        Icon(
+                            if (state.layout == NoteLayout.GRID) Icons.Filled.ViewList else Icons.Filled.GridView,
+                            contentDescription = "Ubah tata letak",
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = { viewModel.deleteSelected() },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Hapus",
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.error
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+
+            Spacer(Modifier.height(16.dp))
 
             AnimatedEntry(delay = 200, modifier = Modifier.weight(1f)) {
                 Box(Modifier.fillMaxSize()) {
@@ -195,20 +203,26 @@ fun NotesScreen(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 100.dp)
                                 ) {
-                                    items(state.filtered, key = { it.id }) { note ->
-                                        val isSelected = state.selectedNoteIds.contains(note.id)
-                                        NoteCard(
-                                            note = note,
-                                            isSelected = isSelected,
-                                            onLongClick = { viewModel.toggleSelection(note.id) },
-                                            onClick = {
-                                                if (state.selectedNoteIds.isNotEmpty()) {
-                                                    viewModel.toggleSelection(note.id)
-                                                } else {
-                                                    navController.navigate("note_edit/${note.id}")
+                                    items(
+                                        items = state.filtered,
+                                        key = { it.id },
+                                        contentType = { "note" }
+                                    ) { note ->
+                                        AnimatedEntry {
+                                            val isSelected = state.selectedNoteIds.contains(note.id)
+                                            NoteCard(
+                                                note = note,
+                                                isSelected = isSelected,
+                                                onLongClick = { viewModel.toggleSelection(note.id) },
+                                                onClick = {
+                                                    if (state.selectedNoteIds.isNotEmpty()) {
+                                                        viewModel.toggleSelection(note.id)
+                                                    } else {
+                                                        navController.navigate("note_edit/${note.id}")
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             } else {
@@ -217,20 +231,26 @@ fun NotesScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                     contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 100.dp)
                                 ) {
-                                    items(state.filtered, key = { it.id }) { note ->
-                                        val isSelected = state.selectedNoteIds.contains(note.id)
-                                        NoteRow(
-                                            note = note,
-                                            isSelected = isSelected,
-                                            onLongClick = { viewModel.toggleSelection(note.id) },
-                                            onClick = {
-                                                if (state.selectedNoteIds.isNotEmpty()) {
-                                                    viewModel.toggleSelection(note.id)
-                                                } else {
-                                                    navController.navigate("note_edit/${note.id}")
+                                    items(
+                                        items = state.filtered,
+                                        key = { it.id },
+                                        contentType = { "note" }
+                                    ) { note ->
+                                        AnimatedEntry {
+                                            val isSelected = state.selectedNoteIds.contains(note.id)
+                                            NoteRow(
+                                                note = note,
+                                                isSelected = isSelected,
+                                                onLongClick = { viewModel.toggleSelection(note.id) },
+                                                onClick = {
+                                                    if (state.selectedNoteIds.isNotEmpty()) {
+                                                        viewModel.toggleSelection(note.id)
+                                                    } else {
+                                                        navController.navigate("note_edit/${note.id}")
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -240,15 +260,18 @@ fun NotesScreen(
             }
 
             if (!state.isLoading && state.error == null) {
-                AnimatedEntry(delay = 300) {
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
-                        SearchBarWithFab(
-                            searchQuery = state.searchQuery,
-                            onSearchQueryChange = viewModel::onSearch,
-                            onFabClick = { navController.navigate("note_edit/new") },
-                            placeholder = "Cari catatan"
-                        )
-                    }
+                AnimatedEntry(
+                    delay = 300,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 30.dp, end = 31.dp, bottom = 39.dp)
+                ) {
+                    SearchBarWithFab(
+                        searchQuery = state.searchQuery,
+                        onSearchQueryChange = viewModel::onSearch,
+                        onFabClick = { navController.navigate("note_edit/new") },
+                        placeholder = "Cari catatan"
+                    )
                 }
             }
         }
@@ -316,6 +339,7 @@ private fun NoteCard(
         label = "cardScale"
     )
 
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -325,7 +349,7 @@ private fun NoteCard(
     ) {
         Surface(
             shape = shape,
-            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else surfaceColor,
             modifier = Modifier
                 .fillMaxWidth()
                 .cardShadow(shapeRadius = 20.dp)
@@ -390,6 +414,7 @@ private fun NoteRow(
         label = "rowScale"
     )
 
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -399,7 +424,7 @@ private fun NoteRow(
     ) {
         Surface(
             shape = shape,
-            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else surfaceColor,
             modifier = Modifier
                 .fillMaxWidth()
                 .cardShadow(shapeRadius = 20.dp)

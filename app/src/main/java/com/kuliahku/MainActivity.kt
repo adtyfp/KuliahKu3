@@ -6,10 +6,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.rememberNavController
 import com.kuliahku.data.datastore.AppPreferences
@@ -135,6 +141,13 @@ class MainActivity : ComponentActivity() {
                         navController = rememberNavController(),
                         startDestination = it,
                         initialDeepLink = initialDeepLink
+                    )
+                } ?: run {
+                    // Tampilkan background splash dasar selagi menghitung startDestination
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(if (isSystemInDarkTheme()) Color(0xFF020617) else Color.White)
                     )
                 }
             }

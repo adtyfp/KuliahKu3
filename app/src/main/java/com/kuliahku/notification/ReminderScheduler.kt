@@ -53,7 +53,13 @@ class ReminderScheduler @Inject constructor(
         scheduleTaskAt(
             task = task,
             triggerAt = deadline - TimeUnit.DAYS.toMillis(1),
-            tagSuffix = "H-1"
+            tagSuffix = "PRIORITY_HIGH"
+        )
+
+        scheduleTaskAt(
+            task = task,
+            triggerAt = deadline - TimeUnit.DAYS.toMillis(3),
+            tagSuffix = "PRIORITY_MEDIUM"
         )
 
         scheduleTaskAt(
@@ -140,7 +146,7 @@ class ReminderScheduler @Inject constructor(
         
         // Cancel Alarms
         val intent = Intent(context, AlarmReceiver::class.java)
-        listOf("H-1", "H-2jam", "OVERDUE").forEach { suffix ->
+        listOf("PRIORITY_HIGH", "PRIORITY_MEDIUM", "H-2jam", "OVERDUE").forEach { suffix ->
             val pi = PendingIntent.getBroadcast(
                 context,
                 (taskId + suffix).hashCode(),

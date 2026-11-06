@@ -39,8 +39,8 @@ private fun getLightColorScheme(primaryColor: Color) = lightColorScheme(
 private fun getDarkColorScheme(primaryColor: Color) = darkColorScheme(
     primary = primaryColor,
     onPrimary = Color.Black,
-    primaryContainer = primaryColor.copy(alpha = 0.2f),
-    onPrimaryContainer = primaryColor,
+    primaryContainer = Color(0xFF1C2B55), // Standardized Dark Accent Container
+    onPrimaryContainer = Color(0xFFF1F4FF),
     background = BackgroundDark,
     onBackground = OnSurfaceDark,
     surface = SurfaceDark,

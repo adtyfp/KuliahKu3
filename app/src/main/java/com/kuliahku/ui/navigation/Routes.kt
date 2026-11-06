@@ -3,6 +3,9 @@ package com.kuliahku.ui.navigation
 
 object Routes {
 
+    // Introduction
+    const val SPLASH = "splash"
+
     // Authentication
     const val WELCOME = "welcome"
     const val LOGIN = "login"

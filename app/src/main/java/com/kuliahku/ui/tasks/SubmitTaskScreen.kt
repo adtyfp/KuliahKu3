@@ -3,6 +3,7 @@ package com.kuliahku.ui.tasks
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,12 +14,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.kuliahku.R
 import com.kuliahku.data.model.TaskStatus
 import com.kuliahku.ui.components.PrimaryPillButton
 import com.kuliahku.ui.theme.cardShadow
@@ -64,10 +68,17 @@ fun SubmitTaskScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali")
                 }
             }
+
+            // Ilustrasi maskot buku (menggantikan emoji 📖)
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("📖", style = MaterialTheme.typography.displayLarge)
+                Image(
+                    painter = painterResource(id = R.drawable.img_task_add),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.width(216.dp)
+                )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             Text("Kumpulkan Tugas", style = MaterialTheme.typography.headlineLarge)
             Text("Kumpulkan tugas mu sebelum deadline", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
             Spacer(Modifier.height(20.dp))

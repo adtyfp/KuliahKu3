@@ -18,6 +18,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -26,6 +29,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+
+// Introduction
+import com.kuliahku.ui.splash.KuliahKuSplashScreen
 
 // Authentication
 import com.kuliahku.ui.auth.WelcomeScreen
@@ -85,9 +91,13 @@ fun AppNavHost(
     initialDeepLink: String? = null
 ) {
 
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
     // Handle deep link
-    LaunchedEffect(initialDeepLink) {
-        if (!initialDeepLink.isNullOrBlank()) {
+    var deepLinkHandled by remember { mutableStateOf(false) }
+    LaunchedEffect(initialDeepLink, currentRoute) {
+        if (!initialDeepLink.isNullOrBlank() && !deepLinkHandled && currentRoute != Routes.SPLASH && currentRoute != null) {
 
             when {
                 initialDeepLink.startsWith("kuliahku://task/") -> {
@@ -105,11 +115,9 @@ fun AppNavHost(
                     navController.navigate("add_event?editId=$id&date=$today")
                 }
             }
+            deepLinkHandled = true
         }
     }
-
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
 
     val showBottomBar = currentRoute in bottomNavItems.map { it.route }
 
@@ -121,7 +129,7 @@ fun AppNavHost(
 
         NavHost(
             navController = navController,
-            startDestination = startDestination,
+            startDestination = Routes.SPLASH,
             modifier = Modifier.fillMaxSize(),
 
             enterTransition = {
@@ -161,6 +169,27 @@ fun AppNavHost(
             }
 
         ) {
+
+            // =========================================
+            // SPLASH SCREEN
+            // =========================================
+
+            composable(
+                route = Routes.SPLASH,
+                exitTransition = {
+                    fadeOut(animationSpec = tween(800))
+                }
+            ) {
+                KuliahKuSplashScreen(
+                    onFinished = {
+                        navController.navigate(startDestination) {
+                            popUpTo(Routes.SPLASH) {
+                                inclusive = true
+                            }
+                        }
+                    }
+                )
+            }
 
             // =========================================
             // AUTHENTICATION

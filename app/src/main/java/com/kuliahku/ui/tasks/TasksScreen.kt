@@ -1,4 +1,4 @@
-package com.kuliahku.ui.tasks
+﻿package com.kuliahku.ui.tasks
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -25,30 +25,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -67,86 +59,22 @@ import com.kuliahku.data.model.Task
 import com.kuliahku.data.model.TaskPriority
 import com.kuliahku.data.model.TaskStatus
 import com.kuliahku.ui.components.AnimatedEntry
+import com.kuliahku.ui.components.SearchBarWithFab
 import com.kuliahku.ui.navigation.Routes
 import com.kuliahku.ui.theme.cardShadow
 import com.kuliahku.util.DateFormatters
 import kotlin.math.abs
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // PALET
 // Light = diukur langsung dari Tugas.png (440 x 956, 1 px = 1 dp).
 // Dark  = #0E1220 (latar), #171C2C (kartu), #2A3350 (border), #F1F4FF (teks utama),
 //         turunan lain diambil dari DarkPalette di HomeScreen.
 // Mode gelap/terang dideteksi dari MaterialTheme.colorScheme.background (sama seperti Home).
-// ─────────────────────────────────────────────────────────────────────────────
-private class BadgeTone(val bg: Color, val border: Color, val text: Color)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
-private class TaskPalette(
-    val background: Color,
-    val surface: Color,
-    val border: Color,
-    val textPrimary: Color,
-    val textSecondary: Color,
-    val chipSelected: Color,
-    val chipBorder: Color,
-    val chipText: Color,
-    val filterBg: Color,
-    val filterBorder: Color,
-    val filterIcon: Color,
-    val searchBorder: Color,
-    val fab: Color,
-    val high: BadgeTone,
-    val medium: BadgeTone,
-    val low: BadgeTone,
-    val actionRed: BadgeTone,   // "Selesaikan"
-    val actionGreen: BadgeTone  // "Selesai"
-)
 
-private val LightTaskPalette = TaskPalette(
-    background = Color(0xFFFBFCFF), // Senada dengan Beranda
-    surface = Color.White,
-    border = Color(0xFFE2E8F0), // Border halus slate
-    textPrimary = Color(0xFF1E293B), // Teks utama dark slate
-    textSecondary = Color(0xFF64748B), // Teks sekunder slate gray
-    chipSelected = Color(0xFF3B82F6), // Biru modern
-    chipBorder = Color(0xFFE2E8F0),
-    chipText = Color(0xFF475569),
-    filterBg = Color(0xFFF1F5F9),
-    filterBorder = Color(0xFFCBD5E1),
-    filterIcon = Color(0xFF64748B),
-    searchBorder = Color(0xFFCBD5E1),
-    fab = Color(0xFF2563EB),
-    high = BadgeTone(Color(0xFFFEF2F2), Color(0xFFFECACA), Color(0xFFEF4444)),
-    medium = BadgeTone(Color(0xFFFFFBEB), Color(0xFFFDE68A), Color(0xFFD97706)),
-    low = BadgeTone(Color(0xFFF0FDF4), Color(0xFFBBF7D0), Color(0xFF16A34A)),
-    actionRed = BadgeTone(Color(0xFFFEF2F2), Color(0xFFFCA5A5), Color(0xFFEF4444)),
-    actionGreen = BadgeTone(Color(0xFFECFDF5), Color(0xFFA7F3D0), Color(0xFF10B981))
-)
-
-private val DarkTaskPalette = TaskPalette(
-    background = Color(0xFF0E1220),
-    surface = Color(0xFF171C2C),
-    border = Color(0xFF2A3350),
-    textPrimary = Color(0xFFF1F4FF),
-    textSecondary = Color(0xFFA3ABC4),      // = Home textSecondary (dark)
-    chipSelected = Color(0xFF3B6FE8),       // = Home ringMid (dark)
-    chipBorder = Color(0xFF2A3350),
-    chipText = Color(0xFFA3ABC4),
-    filterBg = Color(0xFF1C2B55),           // = Home statTotal.container (dark)
-    filterBorder = Color(0xFF4C6FFF),       // = Home menuTasks.border (dark)
-    filterIcon = Color(0xFF7BA0FF),         // = Home statUpcoming.accent (dark)
-    searchBorder = Color(0xFF2A3350),
-    fab = Color(0xFF3B6FE8),
-    high = BadgeTone(Color(0xFF45202A), Color(0xFFFF6B7A).copy(alpha = 0.5f), Color(0xFFFF6B7A)),
-    medium = BadgeTone(Color(0xFF3A2A12), Color(0xFFFFB84D).copy(alpha = 0.5f), Color(0xFFFFB84D)),
-    low = BadgeTone(Color(0xFF14362A), Color(0xFF3DD083).copy(alpha = 0.5f), Color(0xFF3DD083)),
-    actionRed = BadgeTone(Color(0xFF45202A), Color(0xFFFF6B7A).copy(alpha = 0.5f), Color(0xFFFF6B7A)),
-    actionGreen = BadgeTone(Color(0xFF14362A), Color(0xFF3DD083).copy(alpha = 0.5f), Color(0xFF3DD083))
-)
-
-@Composable
-private fun taskPalette(): TaskPalette =
-    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkTaskPalette else LightTaskPalette
 
 /** Warna cincin radio pada desain (7 warna pastel, bukan warna prioritas). */
 private val RingColors = listOf(
@@ -170,25 +98,32 @@ fun TasksScreen(
     viewModel: TasksViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val p = taskPalette()
-
+    
     BackHandler(enabled = state.selectedTasks.isNotEmpty()) {
         viewModel.clearSelection()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(p.background)) {
-        // Margin kiri 14, kanan 13 (kartu & chip pada desain membentang x = 14..426)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(start = 14.dp, end = 13.dp)
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
         ) {
-            Spacer(Modifier.height(57.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                Spacer(Modifier.height(57.dp))
 
-            // ── Header (ikon tengah y=75, judul x=60) ──────────────────────────
-            AnimatedEntry(delay = 100) {
+                // ── Header: tombol kembali bulat, judul + ringkasan ──
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 8.dp),
+                        .padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
@@ -199,45 +134,71 @@ fun TasksScreen(
                                 navController.popBackStack()
                             }
                         },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                CircleShape
+                            )
                     ) {
                         Icon(
-                            if (state.selectedTasks.isNotEmpty()) Icons.Default.Close else rememberBackIcon(),
+                            if (state.selectedTasks.isNotEmpty()) Icons.Default.Close else Icons.Default.ArrowBackIosNew,
                             contentDescription = if (state.selectedTasks.isNotEmpty()) "Batal Pilih" else "Kembali",
-                            modifier = Modifier.size(24.dp),
-                            tint = p.textPrimary
+                            modifier = Modifier.size(if (state.selectedTasks.isNotEmpty()) 22.dp else 16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    Spacer(Modifier.width(2.dp))
-                    
-                    AnimatedContent(
-                        targetState = state.selectedTasks.isNotEmpty(),
-                        transitionSpec = {
-                            (fadeIn() + slideInVertically { it / 2 }).togetherWith(fadeOut() + slideOutVertically { -it / 2 })
-                        },
-                        label = "header_text"
-                    ) { isSelected ->
-                        Text(
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        AnimatedContent(
+                            targetState = state.selectedTasks.isNotEmpty(),
+                            transitionSpec = {
+                                (fadeIn() + slideInVertically { it / 2 }).togetherWith(
+                                    fadeOut() + slideOutVertically { -it / 2 })
+                            },
+                            label = "header_text"
+                        ) { isSelected ->
+                            Text(
                             if (isSelected) "${state.selectedTasks.size} Terpilih" else "Tugas",
                             style = MaterialTheme.typography.headlineMedium.copy(
-                                fontSize = 24.sp,
+                                fontSize = 26.sp,
                                 lineHeight = 32.sp,
-                                fontWeight = FontWeight.ExtraBold
+                                fontWeight = FontWeight.SemiBold
                             ),
-                            color = p.textPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                    if (state.selectedTasks.isNotEmpty()) {
+                        Text(
+                            "Ketuk hapus atau edit",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            "${state.filtered.size} tugas tersisa",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-                    AnimatedVisibility(
+                AnimatedVisibility(
                         visible = state.selectedTasks.isNotEmpty(),
                         enter = fadeIn() + scaleIn(),
-                        exit = fadeOut() + scaleOut(),
-                        modifier = Modifier.weight(1f)
+                        exit = fadeOut() + scaleOut()
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End,
-                            modifier = Modifier.fillMaxWidth()
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (state.selectedTasks.size == 1) {
                                 IconButton(
@@ -245,43 +206,57 @@ fun TasksScreen(
                                         val taskId = state.selectedTasks.first()
                                         navController.navigate(Routes.editTask(taskId))
                                         viewModel.clearSelection()
-                                    }
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                            CircleShape
+                                        )
                                 ) {
                                     Icon(
                                         Icons.Default.Edit,
                                         contentDescription = "Edit Tugas",
-                                        tint = p.chipSelected
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
                             IconButton(
                                 onClick = {
                                     viewModel.confirmDelete()
-                                }
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                        CircleShape
+                                    )
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Hapus Tugas",
-                                    tint = Color.Red
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
                     }
-
-                    if (state.selectedTasks.isEmpty()) {
-                        Spacer(Modifier.weight(1f))
-                    }
                 }
-            }
 
             Spacer(Modifier.height(23.dp))
 
-            // ── Filter chips (tinggi 36, jarak 9) + tombol filter 36x36 ───────────
+            // ── Filter chips ──
             AnimatedEntry(delay = 200) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -289,24 +264,24 @@ fun TasksScreen(
                         TaskFilterChip(
                             label = f.label,
                             selected = state.filter == f,
-                            p = p,
                             onClick = { viewModel.onFilterChange(f) }
                         )
                     }
 
+                    val filterShape = CircleShape
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(p.filterBg)
-                            .border(1.dp, p.filterBorder, RoundedCornerShape(10.dp))
+                            .clip(filterShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), filterShape)
                             .clickable { viewModel.showFilterSheet(true) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            rememberFilterIcon(),
+                            Icons.Outlined.FilterAlt,
                             contentDescription = "Filter",
-                            tint = p.filterIcon,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -315,27 +290,32 @@ fun TasksScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ── Daftar tugas: kartu 88 dp, jarak 5 dp ─────────────────────────────
+            // ── Daftar tugas ──
             Box(Modifier.weight(1f)) {
-                AnimatedEntry(delay = 300, modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                        contentPadding = PaddingValues(bottom = 100.dp)
-                    ) {
-                        // ── AI Advice Section ─────────────────────────────
-                        if (state.isAiLoading || state.aiAdvice != null) {
-                            item(key = "ai_advice") {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 100.dp)
+                ) {
+                    // â”€â”€ AI Advice Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    if (state.isAiLoading || state.aiAdvice != null) {
+                        item(key = "ai_advice", contentType = "ai_card") {
+                            AnimatedEntry {
                                 AiAdviceCard(
                                     advice = state.aiAdvice,
-                                    isLoading = state.isAiLoading,
-                                    p = p
+                                    isLoading = state.isAiLoading
                                 )
-                                Spacer(Modifier.height(15.dp))
                             }
+                            Spacer(Modifier.height(15.dp))
                         }
+                    }
 
-                        items(state.filtered, key = { it.id }) { task ->
+                    items(
+                        items = state.filtered,
+                        key = { it.id },
+                        contentType = { "task" }
+                    ) { task ->
+                        AnimatedEntry {
                             TaskCardStyled(
                                 task = task,
                                 selected = state.selectedTasks.contains(task.id),
@@ -356,7 +336,7 @@ fun TasksScreen(
             }
         }
 
-        // ── Search bar (30..326) + FAB (352..409), tinggi 57, dasar y=917 ────────
+        // ── Search bar + FAB: Standardized ──
         AnimatedEntry(
             delay = 400,
             modifier = Modifier
@@ -364,34 +344,12 @@ fun TasksScreen(
                 .fillMaxWidth()
                 .padding(start = 30.dp, end = 31.dp, bottom = 39.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TaskSearchBar(
-                    query = state.searchQuery,
-                    onQueryChange = viewModel::onSearchChange,
-                    p = p,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(25.dp))
-                Box(
-                    modifier = Modifier
-                        .size(57.dp)
-                        .cardShadow(shapeRadius = 28.5.dp)
-                        .clip(CircleShape)
-                        .background(p.fab)
-                        .clickable { navController.navigate(Routes.ADD_TASK) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        rememberPlusIcon(),
-                        contentDescription = "Tambah tugas",
-                        tint = Color.White,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-            }
+            SearchBarWithFab(
+                searchQuery = state.searchQuery,
+                onSearchQueryChange = viewModel::onSearchChange,
+                onFabClick = { navController.navigate(Routes.ADD_TASK) },
+                placeholder = "Cari tugas..."
+            )
         }
 
         // ── Delete Confirmation Dialog ──
@@ -403,123 +361,81 @@ fun TasksScreen(
                 confirmButton = {
                     Button(
                         onClick = { viewModel.confirmDelete() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("Hapus", color = Color.White)
+                        Text("Hapus", color = MaterialTheme.colorScheme.onError)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { viewModel.requestDeleteCancel() }) {
-                        Text("Batal", color = p.textPrimary)
+                        Text("Batal", color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             )
         }
     }
 }
+}
 
 @Composable
-private fun TaskFilterChip(label: String, selected: Boolean, p: TaskPalette, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(50)
+fun TaskFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = CircleShape
     val widthMod = chipWidth(label)?.let { Modifier.width(it) } ?: Modifier.widthIn(min = 59.dp)
     Box(
         modifier = widthMod
             .height(36.dp)
             .clip(shape)
-            .background(if (selected) p.chipSelected else p.surface)
-            .then(if (selected) Modifier else Modifier.border(1.dp, p.chipBorder, shape))
+            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+            .then(
+                if (selected) Modifier else Modifier.border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    shape
+                )
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             label,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
             maxLines = 1,
             softWrap = false,
             textAlign = TextAlign.Center,
-            color = if (selected) Color.White else p.chipText
-        )
-    }
-}
-
-@Composable
-private fun TaskSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    p: TaskPalette,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .height(57.dp)
-            .clip(CircleShape)
-            .background(p.surface)
-            .border(1.dp, p.searchBorder, CircleShape)
-            .padding(start = 16.dp, end = 18.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            rememberSearchIcon(),
-            contentDescription = null,
-            tint = p.textSecondary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                color = p.textPrimary
-            ),
-            cursorBrush = SolidColor(p.textPrimary),
-            modifier = Modifier.weight(1f),
-            decorationBox = { innerTextField ->
-                if (query.isEmpty()) {
-                    Text(
-                        "Cari tugas...",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = p.textSecondary
-                    )
-                }
-                innerTextField()
-            }
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TaskCardStyled(task: Task, selected: Boolean = false, onClick: () -> Unit, onLongClick: () -> Unit) {
-    val p = taskPalette()
-    val now = System.currentTimeMillis()
-    val dl = task.deadline?.toDate()?.time ?: 0L
-    val isLate = task.statusEnum == TaskStatus.TODO && dl < now
-    val done = task.statusEnum == TaskStatus.DONE
+fun TaskCardStyled(
+    task: Task,
+    selected: Boolean = false,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    val now = remember { System.currentTimeMillis() }
+    val dl = remember(task.deadline) { task.deadline?.toDate()?.time ?: 0L }
+    val done = remember(task.statusEnum) { task.statusEnum == TaskStatus.DONE }
+    val isLate = remember(done, dl, now) { !done && dl < now }
 
     val scale by animateFloatAsState(if (selected) 1.02f else 1f, label = "scale")
-    
-    val ringColor = RingColors[abs(task.id.hashCode()) % RingColors.size]
-    val priorityTone = when (task.priorityEnum) {
-        TaskPriority.HIGH -> p.high
-        TaskPriority.MEDIUM -> p.medium
-        TaskPriority.LOW -> p.low
-    }
-    
-    // Status UI logic
-    val (statusText, statusTone) = when {
-        done -> "Selesai" to p.actionGreen
-        isLate -> "Terlambat" to p.actionRed
-        else -> "Belum Selesai" to p.actionRed
-    }
-    
-    val shape = RoundedCornerShape(16.dp)
+
+    val ringColor = remember(task.id) { RingColors[abs(task.id.hashCode()) % RingColors.size] }
+
+    // UI mapping to MaterialTheme
+    val textPrimary = MaterialTheme.colorScheme.onSurface
+    val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
+    val borderColor =
+        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(
+            alpha = 0.2f
+        )
+
+    val shape = MaterialTheme.shapes.medium
 
     Surface(
         modifier = Modifier
@@ -535,10 +451,10 @@ fun TaskCardStyled(task: Task, selected: Boolean = false, onClick: () -> Unit, o
                 onLongClick = onLongClick
             ),
         shape = shape,
-        color = p.surface,
+        color = surfaceColor,
         border = BorderStroke(
             width = if (selected) 2.dp else 1.dp,
-            color = if (selected) p.chipSelected else p.border
+            color = borderColor
         )
     ) {
         Row(
@@ -556,7 +472,12 @@ fun TaskCardStyled(task: Task, selected: Boolean = false, onClick: () -> Unit, o
                 contentAlignment = Alignment.Center
             ) {
                 if (done) {
-                    Box(Modifier.size(17.dp).clip(CircleShape).background(ringColor))
+                    Box(
+                        Modifier
+                            .size(17.dp)
+                            .clip(CircleShape)
+                            .background(ringColor)
+                    )
                 }
             }
 
@@ -565,29 +486,41 @@ fun TaskCardStyled(task: Task, selected: Boolean = false, onClick: () -> Unit, o
             Column(Modifier.weight(1f)) {
                 Text(
                     task.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    lineHeight = 20.sp,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        lineHeight = 20.sp
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = p.textPrimary,
+                    color = textPrimary,
                     textDecoration = if (done) TextDecoration.LineThrough else null
                 )
                 if (task.description.isNotBlank()) {
                     Text(
                         task.description,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        color = p.textSecondary,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        ),
+                        color = textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
                 Text(
-                    if (isLate) "Terlambat" else DateFormatters.formatFullDate(task.deadline?.toDate() ?: java.util.Date()),
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    color = if (isLate) Color.Red else p.textSecondary,
+                    if (isLate) "Terlambat - ${
+                        DateFormatters.formatFullDate(
+                            task.deadline?.toDate() ?: java.util.Date()
+                        )
+                    }"
+                    else DateFormatters.formatFullDate(task.deadline?.toDate() ?: java.util.Date()),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = if (isLate) FontWeight.Bold else FontWeight.Normal
+                    ),
+                    color = if (isLate) MaterialTheme.colorScheme.error else textSecondary,
                     maxLines = 1
                 )
             }
@@ -596,20 +529,68 @@ fun TaskCardStyled(task: Task, selected: Boolean = false, onClick: () -> Unit, o
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                val priorityText = when (task.priorityEnum) {
+                    TaskPriority.HIGH -> "High"
+                    TaskPriority.MEDIUM -> "Medium"
+                    TaskPriority.LOW -> "Low"
+                }
+
+                val priorityColors = when (task.priorityEnum) {
+                    TaskPriority.HIGH -> Triple(
+                        MaterialTheme.colorScheme.errorContainer,
+                        MaterialTheme.colorScheme.error,
+                        MaterialTheme.colorScheme.error
+                    )
+
+                    TaskPriority.MEDIUM -> Triple(
+                        Color(0xFFFFFBEB),
+                        Color(0xFFD97706),
+                        Color(0xFFFDE68A)
+                    ) // Yellow fallback if not in theme
+                    TaskPriority.LOW -> Triple(
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.tertiary,
+                        MaterialTheme.colorScheme.tertiary
+                    )
+                }
+
                 TaskBadge(
-                    text = when (task.priorityEnum) {
-                        TaskPriority.HIGH -> "High"
-                        TaskPriority.MEDIUM -> "Medium"
-                        TaskPriority.LOW -> "Low"
-                    },
-                    tone = priorityTone,
+                    text = priorityText,
+                    containerColor = priorityColors.first,
+                    contentColor = priorityColors.second,
+                    borderColor = priorityColors.third,
                     modifier = Modifier.widthIn(min = 59.dp),
                     horizontalPadding = 7.dp
                 )
 
+                val (statusText, statusContainer, statusContent, statusBorder) = when {
+                    done -> Quadruple(
+                        "Selesai",
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.tertiary,
+                        MaterialTheme.colorScheme.tertiary
+                    )
+
+                    isLate -> Quadruple(
+                        "Terlambat",
+                        MaterialTheme.colorScheme.errorContainer,
+                        MaterialTheme.colorScheme.error,
+                        MaterialTheme.colorScheme.error
+                    )
+
+                    else -> Quadruple(
+                        "Belum Selesai",
+                        MaterialTheme.colorScheme.errorContainer,
+                        MaterialTheme.colorScheme.error,
+                        MaterialTheme.colorScheme.error
+                    )
+                }
+
                 TaskBadge(
                     text = statusText,
-                    tone = statusTone,
+                    containerColor = statusContainer,
+                    contentColor = statusContent,
+                    borderColor = statusBorder,
                     modifier = Modifier.width(100.dp),
                     horizontalPadding = 0.dp
                 )
@@ -619,23 +600,27 @@ fun TaskCardStyled(task: Task, selected: Boolean = false, onClick: () -> Unit, o
 }
 
 @Composable
-private fun TaskBadge(
+fun TaskBadge(
     text: String,
-    tone: BadgeTone,
+    containerColor: Color,
+    contentColor: Color,
+    borderColor: Color,
     modifier: Modifier = Modifier,
     horizontalPadding: Dp = 7.dp
 ) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(50),
-        color = tone.bg,
-        border = BorderStroke(1.dp, tone.border)
+        color = containerColor,
+        border = BorderStroke(1.dp, borderColor.copy(alpha = 0.5f))
     ) {
         Text(
             text = text,
-            color = tone.text,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
+            color = contentColor,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            ),
             modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 2.dp),
             textAlign = TextAlign.Center
         )
@@ -643,15 +628,16 @@ private fun TaskBadge(
 }
 
 @Composable
-private fun AiAdviceCard(advice: String?, isLoading: Boolean, p: TaskPalette) {
-    val shape = RoundedCornerShape(16.dp)
+fun AiAdviceCard(advice: String?, isLoading: Boolean) {
+    val shape = MaterialTheme.shapes.medium
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .cardShadow(shapeRadius = 16.dp),
         shape = shape,
-        color = p.surface,
-        border = BorderStroke(1.dp, p.border)
+        color = surfaceColor,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     ) {
         Column(
             modifier = Modifier
@@ -664,24 +650,29 @@ private fun AiAdviceCard(advice: String?, isLoading: Boolean, p: TaskPalette) {
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "AI Smart Recommendation",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = p.chipSelected
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             Spacer(Modifier.height(8.dp))
             if (isLoading) {
                 LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth().height(2.dp).clip(CircleShape),
-                    color = p.chipSelected,
-                    trackColor = p.border
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .clip(CircleShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primaryContainer
                 )
             } else {
                 MarkdownText(
                     text = advice ?: "",
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
-                    color = p.textPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -689,7 +680,7 @@ private fun AiAdviceCard(advice: String?, isLoading: Boolean, p: TaskPalette) {
 }
 
 @Composable
-private fun MarkdownText(
+fun MarkdownText(
     text: String,
     fontSize: TextUnit,
     lineHeight: TextUnit,
@@ -701,7 +692,9 @@ private fun MarkdownText(
         lines.forEachIndexed { index, line ->
             var currentLine = line
             // Handle List items
-            if (currentLine.trimStart().startsWith("* ") || currentLine.trimStart().startsWith("- ")) {
+            if (currentLine.trimStart().startsWith("* ") || currentLine.trimStart()
+                    .startsWith("- ")
+            ) {
                 append("  • ")
                 currentLine = currentLine.trimStart().removePrefix("* ").removePrefix("- ")
             }
@@ -724,49 +717,11 @@ private fun MarkdownText(
     }
     Text(
         text = annotatedString,
-        fontSize = fontSize,
-        lineHeight = lineHeight,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            fontSize = fontSize,
+            lineHeight = lineHeight
+        ),
         color = color,
         modifier = modifier
     )
-}
-
-@Composable
-private fun rememberBackIcon(): ImageVector = remember {
-    ImageVector.Builder(name = "Back", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
-        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-            moveTo(15f, 18f); lineTo(9f, 12f); lineTo(15f, 6f)
-        }
-    }.build()
-}
-
-@Composable
-private fun rememberFilterIcon(): ImageVector = remember {
-    ImageVector.Builder(name = "Filter", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
-        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-            moveTo(22f, 3f); horizontalLineTo(2f); lineTo(10f, 12.46f); verticalLineTo(19f); lineTo(14f, 21f); verticalLineTo(12.46f); lineTo(22f, 3f); close()
-        }
-    }.build()
-}
-
-@Composable
-private fun rememberSearchIcon(): ImageVector = remember {
-    ImageVector.Builder(name = "Search", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
-        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-            moveTo(11f, 19f)
-            arcTo(8f, 8f, 0f, true, true, 11f, 3f)
-            arcTo(8f, 8f, 0f, true, true, 11f, 19f)
-            moveTo(21f, 21f); lineTo(16.65f, 16.65f)
-        }
-    }.build()
-}
-
-@Composable
-private fun rememberPlusIcon(): ImageVector = remember {
-    ImageVector.Builder(name = "Plus", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
-        path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2.5f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-            moveTo(12f, 5f); verticalLineTo(19f)
-            moveTo(5f, 12f); horizontalLineTo(19f)
-        }
-    }.build()
 }

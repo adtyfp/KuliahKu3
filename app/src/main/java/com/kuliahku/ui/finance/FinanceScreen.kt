@@ -3,14 +3,19 @@ package com.kuliahku.ui.finance
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -68,79 +73,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 // ---------------------------------------------------------------------------
-// Palet Keuangan (Light = sesuai Keuangan.png, Dark = nilai yang sama dengan Beranda).
-// Mode gelap dideteksi dari MaterialTheme.colorScheme.background.
+// Month Names for Yearly Chart
 // ---------------------------------------------------------------------------
-private class FinPalette(
-    val background: Color,
-    val surface: Color,
-    val border: Color,
-    val textPrimary: Color,
-    val textGray: Color,
-    val accent: Color,
-    val barCardBg: Color,
-    val barColor: Color,
-    val barGrid: Color,
-    val greenBg: Color,
-    val redBg: Color,
-    val tabSelected: Color,
-    val segmentBg: Color,
-    val chartGrid: Color,
-    val chartLine: Color,
-    val chartLabel: Color,
-    val peakLabel: Color,
-    val income: Color,
-    val expense: Color
-)
-
-private val FinLight = FinPalette(
-    background = Color(0xFFFBFCFF), // Senada dengan Beranda
-    surface = Color.White,
-    border = Color(0xFFE2E8F0), // Border halus slate
-    textPrimary = Color(0xFF1E293B), // Dark slate
-    textGray = Color(0xFF64748B), // Slate gray
-    accent = Color(0xFF2563EB), // Blue 600
-    barCardBg = Color(0xFFEFF6FF),
-    barColor = Color(0xFF3B82F6),
-    barGrid = Color(0xFFDBEAFE),
-    greenBg = Color(0xFFECFDF5),
-    redBg = Color(0xFFFEF2F2),
-    tabSelected = Color(0xFFDBEAFE),
-    segmentBg = Color(0xFFF1F5F9),
-    chartGrid = Color(0xFFCBD5E1),
-    chartLine = Color(0xFF2DCB6B),
-    chartLabel = Color(0xFF666666),
-    peakLabel = Color(0xFF3A8F5A),
-    income = Color(0xFF0AAA0A),
-    expense = Color(0xFFC80000)
-)
-
-private val FinDark = FinPalette(
-    background = Color(0xFF0E1220),
-    surface = Color(0xFF171C2C),
-    border = Color(0xFF2A3350),
-    textPrimary = Color(0xFFF1F4FF),
-    textGray = Color(0xFFA3ABC4),
-    accent = Color(0xFF5AA2FF),
-    barCardBg = Color(0xFF1C2755),
-    barColor = Color(0xFF5B7CFF),
-    barGrid = Color(0xFF35457A),
-    greenBg = Color(0xFF14362A),
-    redBg = Color(0xFF45202A),
-    tabSelected = Color(0xFF2B5C9E),
-    segmentBg = Color(0xFF1B2134),
-    chartGrid = Color(0xFF2E3652),
-    chartLine = Color(0xFF3DD083),
-    chartLabel = Color(0xFFA3ABC4),
-    peakLabel = Color(0xFF6EE79A),
-    income = Color(0xFF3DD083),
-    expense = Color(0xFFFF6B7A)
-)
-
-@Composable
-private fun finPalette(): FinPalette =
-    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) FinDark else FinLight
-
 private val MonthNames = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
 
 @Composable
@@ -152,7 +86,6 @@ fun FinanceScreen(
     val snackbar = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
     var lastDeleted by remember { mutableStateOf<Transaction?>(null) }
-    val p = finPalette()
     var showLimitDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -183,113 +116,173 @@ fun FinanceScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        containerColor = p.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
     ) { padding ->
-        Column(
+        LazyColumn(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp)
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = 40.dp)
         ) {
-            Spacer(Modifier.height(8.dp))
+            item {
+                Spacer(Modifier.height(57.dp))
 
-            // ---------------- Header ----------------
-            AnimatedEntry(delay = 0) {
-                Row(
-                    Modifier.fillMaxWidth().height(48.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+                // ── Header: tombol kembali bulat, judul + ringkasan ──
+                AnimatedEntry(delay = 0) {
+                    Row(
                         Modifier
-                            .offset(x = (-10).dp)
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .clickable { navController.popBackStack() },
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(ChevronLeftIcon, "Kembali", tint = p.textPrimary, modifier = Modifier.size(24.dp))
-                    }
-                    Text(
-                        "Keuangan",
-                        modifier = Modifier.offset(x = (-10).dp),
-                        fontSize = 24.sp,
-                        lineHeight = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = p.textPrimary
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Row(Modifier.offset(x = 11.dp)) {
-                        Box(
-                            Modifier.size(40.dp).clip(CircleShape).clickable { navController.navigate(Routes.ADD_TRANSACTION) },
-                            contentAlignment = Alignment.Center
+                        IconButton(
+                            onClick = { navController.popBackStack() },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
                         ) {
-                            Icon(EditSquareIcon, "Catat", tint = p.textPrimary, modifier = Modifier.size(24.dp))
+                            Icon(
+                                Icons.Default.ArrowBackIosNew,
+                                contentDescription = "Kembali",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
-                        Box(
-                            Modifier.size(40.dp).clip(CircleShape).clickable { viewModel.exportCsv(context) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(UploadTrayIcon, "Ekspor", tint = p.textPrimary, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Keuangan",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontSize = 26.sp,
+                                    lineHeight = 32.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Kelola pemasukan & pengeluaran",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        Box(
-                            Modifier.size(40.dp).clip(CircleShape).clickable { showLimitDialog = true },
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(Icons.Default.Settings, "Pengaturan", tint = p.textPrimary, modifier = Modifier.size(24.dp))
+                            IconButton(
+                                onClick = { showLimitDialog = true },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.Default.Settings,
+                                    "Batas",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { navController.navigate(Routes.ADD_TRANSACTION) },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                            ) {
+                                Icon(
+                                    EditSquareIcon,
+                                    "Catat",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.exportCsv(context) },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                            ) {
+                                Icon(
+                                    UploadTrayIcon,
+                                    "Ekspor",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
                     }
                 }
+                Spacer(Modifier.height(16.dp))
             }
-
-            Spacer(Modifier.height(16.dp))
 
             when {
                 state.isLoading -> {
-                    ShimmerBox(Modifier.fillMaxWidth().height(284.dp))
-                    Spacer(Modifier.height(12.dp))
-                    ShimmerBox(Modifier.fillMaxWidth().height(80.dp))
+                    item {
+                        Column(Modifier.padding(horizontal = 22.dp)) {
+                            ShimmerBox(Modifier.fillMaxWidth().height(284.dp))
+                            Spacer(Modifier.height(12.dp))
+                            ShimmerBox(Modifier.fillMaxWidth().height(80.dp))
+                        }
+                    }
                 }
-                state.error != null -> ErrorView(message = state.error!!, onRetry = {})
+                state.error != null -> {
+                    item {
+                        ErrorView(message = state.error!!, onRetry = {})
+                    }
+                }
                 else -> {
                     // ---------------- Ringkasan bulan ----------------
-                    AnimatedEntry(delay = 100) {
-                        Column {
-                            DailyLimitProgress(
-                                dailyLimit = state.settings.dailyLimit,
-                                todayExpense = state.monthlySummary.todayExpense,
-                                p = p
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Row(
-                                Modifier.fillMaxWidth().height(284.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                WeeklyBarCard(
-                                    monthCal = state.currentMonthCal,
-                                    weekly = state.monthlySummary.weeklyExpense,
-                                    onPrev = viewModel::previousMonth,
-                                    onNext = viewModel::nextMonth,
-                                    modifier = Modifier.weight(1f).fillMaxHeight()
+                    item {
+                        AnimatedEntry(delay = 100) {
+                            Column(Modifier.padding(horizontal = 20.dp)) {
+                                DailyLimitProgress(
+                                    dailyLimit = state.settings.dailyLimit,
+                                    todayExpense = state.monthlySummary.todayExpense
                                 )
-                                Column(
-                                    Modifier.weight(1f).fillMaxHeight(),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                Spacer(Modifier.height(12.dp))
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(284.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    SummaryCard(
-                                        title = "Total Pemasukan",
-                                        value = CurrencyFormatter.format(state.monthlySummary.totalIncome),
-                                        bg = p.greenBg,
-                                        icon = MoneyBagPlusIcon,
-                                        modifier = Modifier.weight(1f)
+                                    WeeklyBarCard(
+                                        monthCal = state.currentMonthCal,
+                                        weekly = state.monthlySummary.weeklyExpense,
+                                        onPrev = viewModel::previousMonth,
+                                        onNext = viewModel::nextMonth,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
                                     )
-                                    SummaryCard(
-                                        title = "Total Pengeluaran",
-                                        value = CurrencyFormatter.format(state.monthlySummary.totalExpense),
-                                        bg = p.redBg,
-                                        icon = DashedCoinIcon,
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    Column(
+                                        Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight(),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        SummaryCard(
+                                            title = "Total Pemasukan",
+                                            value = CurrencyFormatter.format(state.monthlySummary.totalIncome),
+                                            bg = MaterialTheme.colorScheme.tertiaryContainer,
+                                            icon = MoneyBagPlusIcon,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        SummaryCard(
+                                            title = "Total Pengeluaran",
+                                            value = CurrencyFormatter.format(state.monthlySummary.totalExpense),
+                                            bg = MaterialTheme.colorScheme.errorContainer,
+                                            icon = DashedCoinIcon,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -297,127 +290,169 @@ fun FinanceScreen(
 
                     // ---------------- AI Insight ----------------
                     if (state.isAiLoading || state.aiInsight != null) {
-                        Spacer(Modifier.height(16.dp))
-                        AnimatedEntry(delay = 150) {
-                            AiInsightCard(
-                                insight = state.aiInsight,
-                                isLoading = state.isAiLoading,
-                                p = p
-                            )
-                        }
-                    }
-
-                    // ---------------- Riwayat Transaksi ----------------
-                    Spacer(Modifier.height(16.dp))
-                    AnimatedEntry(delay = 200) {
-                        Column {
-                            Row(
-                                Modifier.fillMaxWidth().padding(start = 4.dp, end = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Riwayat Transaksi",
-                                    fontSize = 20.sp,
-                                    lineHeight = 28.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = p.textPrimary
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    "Lihat Semua",
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp,
-                                    color = p.accent,
-                                    modifier = Modifier.clickable { navController.navigate("transactions_all") }
-                                )
-                            }
-                            Spacer(Modifier.height(6.5.dp))
-
-                            if (state.latestTransactions.isEmpty()) {
-                                EmptyView(
-                                    title = "Belum ada transaksi bulan ini",
-                                    subtitle = "Catat pemasukan atau pengeluaran Anda."
-                                )
-                            } else {
-                                state.latestTransactions.forEach { tx ->
-                                    TransactionRow(
-                                        tx = tx,
-                                        onClick = {
-                                            navController.navigate("transaction_detail/${tx.id}")
-                                        },
-                                        onLongClick = {
-                                            lastDeleted = tx
-                                            viewModel.requestDelete(tx)
-                                        }
+                        item {
+                            Spacer(Modifier.height(16.dp))
+                            AnimatedEntry(delay = 150) {
+                                Box(Modifier.padding(horizontal = 20.dp)) {
+                                    AiInsightCard(
+                                        insight = state.aiInsight,
+                                        isLoading = state.isAiLoading
                                     )
                                 }
                             }
                         }
                     }
 
-                    // ---------------- Catatan Pertahun ----------------
-                    Spacer(Modifier.height(21.5.dp))
-                    AnimatedEntry(delay = 300) {
-                        Column {
-                            Text(
-                                "Catatan Pertahun",
-                                modifier = Modifier.padding(start = 4.dp),
-                                fontSize = 20.sp,
-                                lineHeight = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = p.textPrimary
-                            )
-                            Spacer(Modifier.height(8.dp))
+                    // ---------------- Riwayat Transaksi ----------------
+                    item {
+                        Spacer(Modifier.height(16.dp))
+                        AnimatedEntry(delay = 200) {
+                            Column(Modifier.padding(horizontal = 20.dp)) {
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 4.dp, end = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Riwayat Transaksi",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontSize = 20.sp,
+                                            lineHeight = 28.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(Modifier.weight(1f))
+                                    Text(
+                                        "Lihat Semua",
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.clickable { navController.navigate("transactions_all") }
+                                    )
+                                }
+                                Spacer(Modifier.height(6.5.dp))
 
-                            val cardShape = RoundedCornerShape(24.dp)
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .cardShadow(shapeRadius = 24.dp),
-                                shape = cardShape,
-                                color = p.surface,
-                                border = BorderStroke(1.dp, p.border)
-                            ) {
-                                Column {
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(start = 19.dp, end = 14.dp, top = 16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        TabChip("Chart", state.chartTab == ChartTab.CHART) { viewModel.setChartTab(ChartTab.CHART) }
-                                        TabChip("Tabel", state.chartTab == ChartTab.TABLE) { viewModel.setChartTab(ChartTab.TABLE) }
-                                        if (state.chartTab == ChartTab.CHART) {
-                                            Spacer(Modifier.weight(1f))
-                                            Row(
-                                                Modifier
-                                                    .clip(CircleShape)
-                                                    .background(p.segmentBg)
-                                                    .padding(2.dp)
-                                            ) {
-                                                TabChip("Pemasukan", state.chartType == TxChartType.INCOME, small = true) { viewModel.setChartType(TxChartType.INCOME) }
-                                                TabChip("Pengeluaran", state.chartType == TxChartType.EXPENSE, small = true) { viewModel.setChartType(TxChartType.EXPENSE) }
-                                            }
-                                        }
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                    when (state.chartTab) {
-                                        ChartTab.CHART -> YearlyLineChart(
-                                            points = state.yearlySummary.points,
-                                            showIncome = state.chartType == TxChartType.INCOME,
-                                            modifier = Modifier.fillMaxWidth().height(190.dp)
-                                        )
-                                        ChartTab.TABLE -> Box(Modifier.padding(horizontal = 19.dp)) {
-                                            YearlyTable(state.yearlySummary.points)
-                                        }
-                                    }
-                                    Spacer(Modifier.height(12.dp))
+                                if (state.latestTransactions.isEmpty()) {
+                                    EmptyView(
+                                        title = "Belum ada transaksi bulan ini",
+                                        subtitle = "Catat pemasukan atau pengeluaran Anda."
+                                    )
                                 }
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(100.dp))
+                    items(
+                        items = state.latestTransactions,
+                        key = { it.id },
+                        contentType = { "transaction" }
+                    ) { tx ->
+                        AnimatedEntry {
+                            Box(Modifier.padding(horizontal = 20.dp)) {
+                                TransactionRow(
+                                    tx = tx,
+                                    onClick = {
+                                        navController.navigate("transaction_detail/${tx.id}")
+                                    },
+                                    onLongClick = {
+                                        lastDeleted = tx
+                                        viewModel.requestDelete(tx)
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // ---------------- Catatan Pertahun ----------------
+                    item {
+                        Spacer(Modifier.height(21.5.dp))
+                        AnimatedEntry(delay = 300) {
+                            Column(Modifier.padding(horizontal = 20.dp)) {
+                                Text(
+                                    "Catatan Pertahun",
+                                    modifier = Modifier.padding(start = 4.dp),
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontSize = 20.sp,
+                                        lineHeight = 28.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(Modifier.height(8.dp))
+
+                                val cardShape = MaterialTheme.shapes.medium
+                                val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .cardShadow(shapeRadius = 24.dp),
+                                    shape = cardShape,
+                                    color = surfaceColor,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                ) {
+                                    Column {
+                                        Row(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 19.dp, end = 14.dp, top = 16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            TabChip(
+                                                "Chart",
+                                                state.chartTab == ChartTab.CHART
+                                            ) { viewModel.setChartTab(ChartTab.CHART) }
+                                            TabChip(
+                                                "Tabel",
+                                                state.chartTab == ChartTab.TABLE
+                                            ) { viewModel.setChartTab(ChartTab.TABLE) }
+                                            if (state.chartTab == ChartTab.CHART) {
+                                                Spacer(Modifier.weight(1f))
+                                                Row(
+                                                    Modifier
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                        .padding(2.dp)
+                                                ) {
+                                                    TabChip(
+                                                        "Pemasukan",
+                                                        state.chartType == TxChartType.INCOME,
+                                                        small = true
+                                                    ) { viewModel.setChartType(TxChartType.INCOME) }
+                                                    TabChip(
+                                                        "Pengeluaran",
+                                                        state.chartType == TxChartType.EXPENSE,
+                                                        small = true
+                                                    ) { viewModel.setChartType(TxChartType.EXPENSE) }
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        when (state.chartTab) {
+                                            ChartTab.CHART -> YearlyLineChart(
+                                                points = state.yearlySummary.points,
+                                                showIncome = state.chartType == TxChartType.INCOME,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(190.dp)
+                                            )
+                                            ChartTab.TABLE -> Box(
+                                                Modifier.padding(
+                                                    horizontal = 19.dp
+                                                )
+                                            ) {
+                                                YearlyTable(state.yearlySummary.points)
+                                            }
+                                        }
+                                        Spacer(Modifier.height(12.dp))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(100.dp))
+                    }
                 }
             }
         }
@@ -444,8 +479,7 @@ fun FinanceScreen(
             onConfirm = {
                 viewModel.updateDailyLimit(it)
                 showLimitDialog = false
-            },
-            p = p
+            }
         )
     }
 }
@@ -453,22 +487,22 @@ fun FinanceScreen(
 @Composable
 private fun DailyLimitProgress(
     dailyLimit: Long,
-    todayExpense: Long,
-    p: FinPalette
+    todayExpense: Long
 ) {
     if (dailyLimit <= 0) return
 
     val progress = (todayExpense.toFloat() / dailyLimit).coerceIn(0f, 1f)
     val isOverLimit = todayExpense > dailyLimit
-    val shape = RoundedCornerShape(24.dp)
+    val shape = MaterialTheme.shapes.medium
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .cardShadow(shapeRadius = 24.dp),
         shape = shape,
-        color = p.surface,
-        border = BorderStroke(1.dp, p.border)
+        color = surfaceColor,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -476,13 +510,13 @@ private fun DailyLimitProgress(
                     "Batas Harian",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = p.textPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
                     "${CurrencyFormatter.formatCompact(todayExpense)} / ${CurrencyFormatter.formatCompact(dailyLimit)}",
                     fontSize = 12.sp,
-                    color = if (isOverLimit) p.expense else p.textGray
+                    color = if (isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(Modifier.height(8.dp))
@@ -492,14 +526,14 @@ private fun DailyLimitProgress(
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(CircleShape),
-                color = if (isOverLimit) p.expense else p.accent,
-                trackColor = p.border,
+                color = if (isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
             )
             if (isOverLimit) {
                 Text(
                     "Peringatan: Pengeluaran melebihi batas!",
                     fontSize = 11.sp,
-                    color = p.expense,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
@@ -511,35 +545,35 @@ private fun DailyLimitProgress(
 private fun DailyLimitDialog(
     currentLimit: Long,
     onDismiss: () -> Unit,
-    onConfirm: (Long) -> Unit,
-    p: FinPalette
+    onConfirm: (Long) -> Unit
 ) {
     var limitText by remember { mutableStateOf(if (currentLimit > 0) currentLimit.toString() else "") }
 
     Dialog(onDismissRequest = onDismiss) {
+        val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
         Surface(
             modifier = Modifier.cardShadow(shapeRadius = 28.dp),
             shape = RoundedCornerShape(28.dp),
-            color = p.surface,
+            color = surfaceColor,
             tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Settings, null, tint = p.accent, modifier = Modifier.size(32.dp))
+                Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "Atur Batas Harian",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = p.textPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "Masukkan jumlah maksimal pengeluaran harian Anda.",
                     fontSize = 14.sp,
-                    color = p.textGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
@@ -556,12 +590,12 @@ private fun DailyLimitDialog(
                 Spacer(Modifier.height(24.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text("Batal", color = p.textGray)
+                        Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = { onConfirm(limitText.toLongOrNull() ?: 0L) },
-                        colors = ButtonDefaults.buttonColors(containerColor = p.accent),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Simpan", color = Color.White)
@@ -573,15 +607,16 @@ private fun DailyLimitDialog(
 }
 
 @Composable
-private fun AiInsightCard(insight: String?, isLoading: Boolean, p: FinPalette) {
-    val shape = RoundedCornerShape(24.dp)
+private fun AiInsightCard(insight: String?, isLoading: Boolean) {
+    val shape = MaterialTheme.shapes.medium
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .cardShadow(shapeRadius = 24.dp),
         shape = shape,
-        color = p.surface,
-        border = BorderStroke(1.dp, p.border)
+        color = surfaceColor,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -591,22 +626,22 @@ private fun AiInsightCard(insight: String?, isLoading: Boolean, p: FinPalette) {
                     text = "Smart Finance Insight",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = p.accent
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             Spacer(Modifier.height(10.dp))
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth().height(2.dp).clip(CircleShape),
-                    color = p.accent,
-                    trackColor = p.border
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                 )
             } else {
                 MarkdownText(
                     text = insight ?: "",
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
-                    color = p.textPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -667,16 +702,17 @@ private fun WeeklyBarCard(
     onNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val p = finPalette()
     val buckets = MonthKey.BUCKETS
     val maxVal = weekly.values.maxOrNull() ?: 0L
     val axisMax = niceCeil(maxVal)
+    val colorScheme = MaterialTheme.colorScheme
+    val surfaceColor = if (colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
 
     Surface(
         modifier = modifier.cardShadow(shapeRadius = 24.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = p.barCardBg,
-        border = BorderStroke(1.dp, p.border.copy(alpha = 0.5f))
+        shape = MaterialTheme.shapes.medium,
+        color = surfaceColor,
+        border = BorderStroke(1.dp, colorScheme.outline.copy(alpha = 0.1f))
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val plotLeft = 30.dp
@@ -693,7 +729,7 @@ private fun WeeklyBarCard(
                 fontSize = 15.sp,
                 lineHeight = 22.sp,
                 fontWeight = FontWeight.Medium,
-                color = p.textPrimary
+                color = colorScheme.onSurface
             )
 
             Canvas(Modifier.fillMaxSize()) {
@@ -701,7 +737,7 @@ private fun WeeklyBarCard(
                 for (k in 1..4) {
                     val y = (baseY - (baseY - topY) * (k / 4f)).toPx()
                     drawLine(
-                        color = p.barGrid,
+                        color = colorScheme.outline.copy(alpha = 0.2f),
                         start = Offset(plotLeft.toPx(), y),
                         end = Offset(plotRight.toPx(), y),
                         strokeWidth = 1.dp.toPx(),
@@ -715,7 +751,7 @@ private fun WeeklyBarCard(
                     val value = weekly[bucket] ?: 0L
                     val h = ((value.toFloat() / axisMax) * full).coerceIn(minH, full)
                     drawRoundRect(
-                        color = p.barColor,
+                        color = colorScheme.primary,
                         topLeft = Offset(centerX(i).toPx() - barW / 2f, baseY.toPx() - h),
                         size = Size(barW, h),
                         cornerRadius = CornerRadius(barW / 2f)
@@ -730,7 +766,7 @@ private fun WeeklyBarCard(
                     modifier = Modifier.offset(x = 6.dp, y = y - 7.dp),
                     fontSize = 10.sp,
                     lineHeight = 14.sp,
-                    color = p.textGray
+                    color = colorScheme.onSurfaceVariant
                 )
             }
             Text(
@@ -738,7 +774,7 @@ private fun WeeklyBarCard(
                 modifier = Modifier.offset(x = 6.dp, y = 246.dp),
                 fontSize = 10.sp,
                 lineHeight = 14.sp,
-                color = p.textGray
+                color = colorScheme.onSurfaceVariant
             )
             buckets.forEachIndexed { i, bucket ->
                 Box(
@@ -750,7 +786,7 @@ private fun WeeklyBarCard(
                         modifier = Modifier.wrapContentWidth(unbounded = true),
                         fontSize = 9.sp,
                         lineHeight = 14.sp,
-                        color = p.textGray,
+                        color = colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Visible,
@@ -770,28 +806,32 @@ private fun SummaryCard(
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
-    val p = finPalette()
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
+    val contentColor = if (bg == MaterialTheme.colorScheme.tertiaryContainer) MaterialTheme.colorScheme.tertiary
+    else if (bg == MaterialTheme.colorScheme.errorContainer) MaterialTheme.colorScheme.error
+    else MaterialTheme.colorScheme.onSurface
+
     Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = bg,
-        border = BorderStroke(1.dp, p.border.copy(alpha = 0.5f)),
+        shape = MaterialTheme.shapes.medium,
+        color = surfaceColor,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
         modifier = modifier.fillMaxWidth().cardShadow(shapeRadius = 24.dp)
     ) {
         Column(Modifier.padding(start = 21.dp, top = 27.dp)) {
-            Icon(icon, contentDescription = null, tint = p.textPrimary, modifier = Modifier.size(28.dp))
+            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(28.dp))
             Spacer(Modifier.height(2.dp))
             Text(
                 title,
                 fontSize = 13.sp,
                 lineHeight = 20.sp,
-                color = p.textGray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 value,
                 fontSize = 13.sp,
                 lineHeight = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = p.textPrimary
+                color = contentColor
             )
         }
     }
@@ -799,9 +839,9 @@ private fun SummaryCard(
 
 @Composable
 fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit) {
-    val p = finPalette()
     val isIncome = tx.typeEnum == TxType.INCOME
-    val shape = RoundedCornerShape(22.dp)
+    val shape = MaterialTheme.shapes.medium
+    val surfaceColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF171C2C) else Color.White
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -809,8 +849,8 @@ fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit
             .height(68.dp)
             .cardShadow(shapeRadius = 22.dp),
         shape = shape,
-        color = p.surface,
-        border = BorderStroke(1.dp, p.border)
+        color = surfaceColor,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     ) {
         Row(
             Modifier
@@ -822,7 +862,7 @@ fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit
             Icon(
                 if (isIncome) BanknotePlusIcon else BanknoteMinusIcon,
                 contentDescription = null,
-                tint = if (isIncome) p.income else p.expense,
+                tint = if (isIncome) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(30.dp)
             )
             Spacer(Modifier.width(14.dp))
@@ -832,20 +872,20 @@ fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit
                     fontSize = 16.sp,
                     lineHeight = 20.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = p.textPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 tx.date?.toDate()?.let {
                     Text(
                         DateFormatters.formatDateTime(it),
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
-                        color = p.textPrimary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             Text(
                 CurrencyFormatter.format(tx.amount),
-                color = if (isIncome) p.income else p.expense,
+                color = if (isIncome) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
                 maxLines = 1
@@ -856,12 +896,11 @@ fun TransactionRow(tx: Transaction, onClick: () -> Unit, onLongClick: () -> Unit
 
 @Composable
 private fun TabChip(label: String, selected: Boolean, small: Boolean = false, onClick: () -> Unit) {
-    val p = finPalette()
     Box(
         modifier = Modifier
             .height(if (small) 22.dp else 23.dp)
             .clip(CircleShape)
-            .background(if (selected) p.tabSelected else Color.Transparent)
+            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = if (small) 10.dp else 9.dp),
         contentAlignment = Alignment.Center
@@ -871,7 +910,7 @@ private fun TabChip(label: String, selected: Boolean, small: Boolean = false, on
             fontSize = if (small) 12.sp else 14.sp,
             lineHeight = if (small) 16.sp else 18.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) Color.White else if (small) p.textGray else p.textPrimary,
+            color = if (selected) Color.White else if (small) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             softWrap = false
         )
@@ -884,7 +923,7 @@ private fun YearlyLineChart(
     showIncome: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val p = finPalette()
+    val colorScheme = MaterialTheme.colorScheme
     val data = remember(points) { points.sortedBy { it.monthIndex } }
     val values = data.map { if (showIncome) it.income else it.expense }
     val maxV = values.maxOrNull() ?: 0L
@@ -908,7 +947,7 @@ private fun YearlyLineChart(
             val right = (axisW + plotW).toPx()
             listOf(step, 2 * step).forEach { level ->
                 val y = yOf(level).toPx()
-                drawLine(p.chartGrid, Offset(left, y), Offset(right, y), strokeWidth = 1.dp.toPx())
+                drawLine(colorScheme.outline.copy(alpha = 0.2f), Offset(left, y), Offset(right, y), strokeWidth = 1.dp.toPx())
             }
 
             if (values.isNotEmpty()) {
@@ -923,14 +962,14 @@ private fun YearlyLineChart(
                     }
                     drawPath(
                         path,
-                        color = p.chartLine,
+                        color = if (showIncome) colorScheme.tertiary else colorScheme.error,
                         style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
                 }
                 if (peakIndex >= 0) {
                     val c = pts[peakIndex]
-                    drawCircle(p.surface, radius = 5.dp.toPx(), center = c)
-                    drawCircle(p.chartLine, radius = 5.dp.toPx(), center = c, style = Stroke(width = 2.dp.toPx()))
+                    drawCircle(colorScheme.surface, radius = 5.dp.toPx(), center = c)
+                    drawCircle(if (showIncome) colorScheme.tertiary else colorScheme.error, radius = 5.dp.toPx(), center = c, style = Stroke(width = 2.dp.toPx()))
                 }
             }
         }
@@ -944,7 +983,7 @@ private fun YearlyLineChart(
                     if (level == 0L) "0" else formatK(level),
                     fontSize = 11.sp,
                     lineHeight = 16.sp,
-                    color = p.chartLabel,
+                    color = colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -962,7 +1001,7 @@ private fun YearlyLineChart(
                         modifier = Modifier.wrapContentWidth(unbounded = true),
                         fontSize = 10.sp,
                         lineHeight = 16.sp,
-                        color = p.chartLabel,
+                        color = colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Visible
@@ -980,7 +1019,7 @@ private fun YearlyLineChart(
                     NumberFormat.getIntegerInstance(Locale("id", "ID")).format(values[peakIndex] / 1000) + "k",
                     fontSize = 11.sp,
                     lineHeight = 16.sp,
-                    color = p.peakLabel,
+                    color = if (showIncome) colorScheme.tertiary else colorScheme.error,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -991,26 +1030,26 @@ private fun YearlyLineChart(
 
 @Composable
 private fun YearlyTable(points: List<YearlyPoint>) {
-    val p = finPalette()
+    val colorScheme = MaterialTheme.colorScheme
     Column {
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-            Text("Bulan", Modifier.weight(0.6f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = p.textPrimary)
-            Text("Masuk", Modifier.weight(0.7f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = p.textPrimary)
-            Text("Keluar", Modifier.weight(0.7f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = p.textPrimary)
-            Text("Selisih", Modifier.weight(0.7f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = p.textPrimary)
+            Text("Bulan", Modifier.weight(0.6f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = colorScheme.onSurface)
+            Text("Masuk", Modifier.weight(0.7f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = colorScheme.onSurface)
+            Text("Keluar", Modifier.weight(0.7f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = colorScheme.onSurface)
+            Text("Selisih", Modifier.weight(0.7f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = colorScheme.onSurface)
         }
         points.forEach { pt ->
             val monthName = MonthNames[pt.monthIndex.coerceIn(0, 11)]
             val selisih = pt.income - pt.expense
             Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                Text(monthName, Modifier.weight(0.6f), fontSize = 11.sp, color = p.textPrimary)
-                Text(CurrencyFormatter.formatCompact(pt.income), Modifier.weight(0.7f), fontSize = 11.sp, color = p.textPrimary)
-                Text(CurrencyFormatter.formatCompact(pt.expense), Modifier.weight(0.7f), fontSize = 11.sp, color = p.textPrimary)
+                Text(monthName, Modifier.weight(0.6f), fontSize = 11.sp, color = colorScheme.onSurface)
+                Text(CurrencyFormatter.formatCompact(pt.income), Modifier.weight(0.7f), fontSize = 11.sp, color = colorScheme.onSurface)
+                Text(CurrencyFormatter.formatCompact(pt.expense), Modifier.weight(0.7f), fontSize = 11.sp, color = colorScheme.onSurface)
                 Text(
                     CurrencyFormatter.formatCompact(selisih),
                     Modifier.weight(0.7f),
                     fontSize = 11.sp,
-                    color = if (selisih >= 0) p.income else p.expense
+                    color = if (selisih >= 0) colorScheme.tertiary else colorScheme.error
                 )
             }
         }
@@ -1074,7 +1113,7 @@ private fun dashedCircle(cx: Float, cy: Float, r: Float, dashes: Int = 12): Stri
     return sb.toString()
 }
 
-private val ChevronLeftIcon = vec("ChevronLeft") { stroked("M15 18l-6-6 6-6", 2.2f) }
+private val ChevronLeftIcon = Icons.AutoMirrored.Filled.ArrowBack
 
 private val EditSquareIcon = vec("EditSquare") {
     stroked(

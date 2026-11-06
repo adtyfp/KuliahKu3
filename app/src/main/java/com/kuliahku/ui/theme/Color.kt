@@ -12,11 +12,11 @@ val OnSurfaceVariant = Color(0xFF64748B) // Slate 500 untuk teks sekunder
 
 // Core Dark
 val PrimaryDark = Color(0xFF60A5FA)
-val BackgroundDark = Color(0xFF0F172A) // Deep Slate
-val SurfaceDark = Color(0xFF1E293B)
-val SurfaceVariantDark = Color(0xFF334155)
-val OnSurfaceDark = Color(0xFFF1F5F9)
-val OnSurfaceVariantDark = Color(0xFF94A3B8)
+val BackgroundDark = Color(0xFF0E1220) // Deep Dark Navy
+val SurfaceDark = Color(0xFF171C2C)    // Dark Card Surface
+val SurfaceVariantDark = Color(0xFF1C2B55) // Dark Accent Container
+val OnSurfaceDark = Color(0xFFF1F4FF)
+val OnSurfaceVariantDark = Color(0xFFA3ABC4)
 
 // Accent Colors - Light
 val BlueSoft = Color(0xFFCDD9FB)
