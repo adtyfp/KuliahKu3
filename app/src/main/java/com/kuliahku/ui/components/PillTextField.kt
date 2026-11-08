@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.kuliahku.ui.theme.cardShadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -44,7 +45,10 @@ fun PillTextField(
                 singleLine = true,
                 isError = error != null,
                 visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-                keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else keyboardType),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (isPassword) KeyboardType.Password else keyboardType,
+                    capitalization = if (isPassword) KeyboardCapitalization.None else KeyboardCapitalization.Sentences
+                ),
                 trailingIcon = if (isPassword) {
                     {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {

@@ -16,7 +16,10 @@ data class Material(
     val sourceRef: String? = null,       // storagePath / url / youtubeId
     val extractedText: String? = null,
     val summary: String? = null,
+    val quiz: List<QuizQuestion> = emptyList(),
+    val flashcards: List<Flashcard> = emptyList(),
     val chatHistory: List<ChatMessage> = emptyList(),
+    val suggestedReferences: List<JournalReference> = emptyList(),
     val createdAt: Timestamp? = null,
     val updatedAt: Timestamp? = null
 ) {

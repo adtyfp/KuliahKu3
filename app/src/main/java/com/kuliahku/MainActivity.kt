@@ -62,6 +62,8 @@ class MainActivity : ComponentActivity() {
         // Pengguna tetap dapat mengaktifkannya melalui pengaturan.
     }
 
+    private var deepLinkState = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
 
         // Android System Splash Screen
@@ -69,6 +71,9 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Capture initial deep link
+        deepLinkState.value = intent?.data?.toString()
 
         // Membuat notification channel
         NotificationChannels.ensureChannels(this)
@@ -91,9 +96,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val initialDeepLink = intent?.data?.toString()
-
         setContent {
+            val deepLink by deepLinkState
 
             val themeMode by appPreferences.themeMode.collectAsState(
                 initial = "system"
@@ -238,7 +242,11 @@ class MainActivity : ComponentActivity() {
 
                         startDestination = startDestination!!,
 
-                        initialDeepLink = initialDeepLink,
+                        initialDeepLink = deepLink,
+
+                        onDeepLinkHandled = {
+                            deepLinkState.value = null
+                        },
 
                         showSplash = showSplash
                     )
@@ -260,5 +268,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        deepLinkState.value = intent.data?.toString()
     }
 }

@@ -33,10 +33,56 @@ class FinanceNotificationListener : NotificationListenerService() {
     @Inject lateinit var parserRegistry: NotificationParserRegistry
     @Inject lateinit var auth: com.google.firebase.auth.FirebaseAuth
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override fun onCreate() {
+        super.onCreate()
+        startForegroundService()
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        android.util.Log.d("FinanceNotif", "Listener connected, syncing active notifications")
+        syncActiveNotifications()
+    }
+
+    private fun startForegroundService() {
+        val notification = NotificationCompat.Builder(this, NotificationChannels.FINANCE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("KuliahKu Finance")
+            .setContentText("Memantau notifikasi keuangan otomatis")
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .build()
+        
+        try {
+            startForeground(888, notification)
+        } catch (e: Exception) {
+            android.util.Log.e("FinanceNotif", "Failed to start foreground", e)
+        }
+    }
+
+    private fun syncActiveNotifications() {
+        scope.launch {
+            try {
+                val activeNotifications = getActiveNotifications()
+                activeNotifications?.forEach { sbn ->
+                    processNotification(sbn)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("FinanceNotif", "Error syncing active notifications", e)
+            }
+        }
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val sbnSafe = sbn ?: return
+        scope.launch {
+            processNotification(sbnSafe)
+        }
+    }
+
+    private suspend fun processNotification(sbnSafe: StatusBarNotification) {
         val pkg = sbnSafe.packageName ?: return
         
         val extras = sbnSafe.notification?.extras ?: return
@@ -44,78 +90,40 @@ class FinanceNotificationListener : NotificationListenerService() {
         val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
         val bigText = extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
         
-        // Log detail untuk debugging
-        android.util.Log.d("FinanceNotif", "Incoming from $pkg")
-        android.util.Log.d("FinanceNotif", "Title: $title")
-        android.util.Log.d("FinanceNotif", "Text: $text")
-        if (bigText.isNotBlank()) android.util.Log.d("FinanceNotif", "BigText: $bigText")
-
         val combined = listOf(title, text, bigText).filter { it.isNotBlank() }.joinToString(" | ")
 
-        if (!parserRegistry.isAllowed(pkg)) {
-            // Jika mengandung kata kunci uang tapi package belum terdaftar
-            if (combined.contains("Rp", true) || combined.contains("IDR", true)) {
-                android.util.Log.w("FinanceNotif", "Potensi info keuangan dari $pkg tapi belum didukung.")
-            }
-            return
-        }
+        if (!parserRegistry.isAllowed(pkg)) return
 
-        val parsed = parserRegistry.parse(pkg, combined)
-        if (parsed == null) {
-            android.util.Log.d("FinanceNotif", "Gagal parsing dari $pkg: $combined")
-            // Tampilkan toast debug (hanya untuk package yang sudah terdaftar tapi gagal parse)
-            scope.launch(Dispatchers.Main) {
-                // Toast ini membantu user tahu bahwa notif terdeteksi tapi pola teksnya meleset
-                // android.widget.Toast.makeText(this@FinanceNotificationListener, "Format notif $pkg tidak cocok", android.widget.Toast.LENGTH_SHORT).show()
-            }
-            return
-        }
+        val parsed = parserRegistry.parse(pkg, combined) ?: return
         
         val postTime = if (sbnSafe.postTime > 0) sbnSafe.postTime else System.currentTimeMillis()
         val hash = parsed.dedupHash(pkg, postTime)
 
-        scope.launch {
-            try {
-                val currentUser = auth.currentUser
-                if (currentUser == null) {
-                    android.util.Log.e("FinanceNotif", "User tidak login")
-                    return@launch
-                }
+        try {
+            val currentUser = auth.currentUser
+            if (currentUser == null) return
 
-                if (repo.existsByHash(hash)) {
-                    android.util.Log.d("FinanceNotif", "Duplikat: $hash")
-                    return@launch
-                }
+            if (repo.existsByHash(hash)) return
 
-                val date = java.util.Date(postTime)
-                val tx = Transaction(
-                    type = parsed.type.value,
-                    category = parsed.category,
-                    amount = parsed.amount,
-                    description = parsed.merchant ?: "Dari ${parserRegistry.displayName(pkg)}",
-                    date = com.google.firebase.Timestamp(date),
-                    monthKey = com.kuliahku.util.MonthKey.of(date),
-                    yearKey = com.kuliahku.util.MonthKey.yearOf(date),
-                    source = com.kuliahku.data.model.TxSource.NOTIFICATION.value,
-                    dedupHash = hash
-                )
-                
-                repo.addFromNotification(tx).onSuccess {
-                    showSuccessNotification(parsed.amount, parsed.type.value, parsed.merchant ?: parserRegistry.displayName(pkg))
-                    checkDailyLimit(parsed.type == com.kuliahku.data.model.TxType.EXPENSE)
-                }.onFailure { e ->
-                    android.util.Log.e("FinanceNotif", "Gagal simpan: ${e.message}")
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                         android.widget.Toast.makeText(
-                            this@FinanceNotificationListener,
-                            "Gagal catat: ${e.message}",
-                            android.widget.Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("FinanceNotif", "Error", e)
+            val date = java.util.Date(postTime)
+            val tx = Transaction(
+                type = parsed.type.value,
+                category = parsed.category,
+                amount = parsed.amount,
+                description = parsed.merchant ?: "Dari ${parserRegistry.displayName(pkg)}",
+                date = com.google.firebase.Timestamp(date),
+                monthKey = com.kuliahku.util.MonthKey.of(date),
+                yearKey = com.kuliahku.util.MonthKey.yearOf(date),
+                source = com.kuliahku.data.model.TxSource.NOTIFICATION.value,
+                dedupHash = hash
+            )
+            
+            repo.addFromNotification(tx).onSuccess {
+                showSuccessNotification(parsed.amount, parsed.type.value, parsed.merchant ?: parserRegistry.displayName(pkg))
+                checkDailyLimit(parsed.type == com.kuliahku.data.model.TxType.EXPENSE)
             }
+        } catch (e: Exception) {
+            android.util.Log.e("FinanceNotif", "Error processing", e)
         }
     }
 

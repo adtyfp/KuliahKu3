@@ -187,8 +187,7 @@ private fun SwipeToStartButton(
         val hintColor = if (progress > 0.6f) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
         Text(
             text = "Ayo Kita Mulai",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             color = hintColor,
             textAlign = TextAlign.Center,
             modifier = Modifier

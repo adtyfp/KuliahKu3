@@ -29,42 +29,42 @@ class MaterialRepository @Inject constructor(
         firestore.collection(Constants.COLLECTION_USERS).document(uid).collection("materials")
 
     fun observeAll(): Flow<List<Material>> = callbackFlow {
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            android.util.Log.w("MaterialRepository", "observeAll: No user logged in")
-            trySend(emptyList())
-            close()
-            return@callbackFlow
-        }
+        var snapshotListener: com.google.firebase.firestore.ListenerRegistration? = null
         
-        android.util.Log.d("MaterialRepository", "Starting observeAll for UID: $uid")
-        
-        val query = col(uid).orderBy("createdAt", Query.Direction.DESCENDING)
-        val listener = query.addSnapshotListener { snap, err ->
-            if (err != null) { 
-                android.util.Log.e("MaterialRepository", "SNAPSHOT ERROR [$uid]: ${err.code} - ${err.message}", err)
-                trySend(emptyList())
-                return@addSnapshotListener 
-            }
+        val authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            val uid = firebaseAuth.currentUser?.uid
             
-            if (snap == null || snap.isEmpty) {
-                android.util.Log.d("MaterialRepository", "Snapshot is empty for UID: $uid")
+            // Bersihkan listener lama jika ada (saat ganti akun/logout)
+            snapshotListener?.remove()
+            
+            if (uid == null) {
                 trySend(emptyList())
-                return@addSnapshotListener
+                return@AuthStateListener
             }
 
-            val materials = snap.documents.mapNotNull { doc ->
-                try {
-                    doc.toObject(Material::class.java)?.copy(id = doc.id)
-                } catch (e: Exception) {
-                    android.util.Log.e("MaterialRepository", "Parse error doc ${doc.id}: ${e.message}")
-                    null
+            val query = col(uid).orderBy("createdAt", Query.Direction.DESCENDING)
+            snapshotListener = query.addSnapshotListener { snap, err ->
+                if (err != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
                 }
+                
+                val materials = snap?.documents?.mapNotNull { doc ->
+                    try {
+                        doc.toObject(Material::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) { null }
+                } ?: emptyList()
+                
+                trySend(materials)
             }
-            android.util.Log.d("MaterialRepository", "Successfully fetched ${materials.size} materials for $uid")
-            trySend(materials)
         }
-        awaitClose { listener.remove() }
+
+        auth.addAuthStateListener(authListener)
+        
+        awaitClose {
+            auth.removeAuthStateListener(authListener)
+            snapshotListener?.remove()
+        }
     }
 
     fun observe(id: String): Flow<Material?> = callbackFlow {
@@ -92,6 +92,8 @@ class MaterialRepository @Inject constructor(
             "sourceRef" to material.sourceRef,
             "extractedText" to material.extractedText,
             "summary" to material.summary,
+            "quiz" to material.quiz,
+            "flashcards" to material.flashcards,
             "createdAt" to (material.createdAt ?: FieldValue.serverTimestamp()),
             "updatedAt" to FieldValue.serverTimestamp()
         )
@@ -108,9 +110,36 @@ class MaterialRepository @Inject constructor(
 
     suspend fun updateSummary(id: String, summary: String): Result<Unit> = runCatching {
         val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
-        col(uid).document(id).set(
-            mapOf("summary" to summary, "updatedAt" to FieldValue.serverTimestamp()),
-            SetOptions.merge()
+        col(uid).document(id).update(
+            "summary", summary,
+            "updatedAt", FieldValue.serverTimestamp()
+        ).await()
+        Unit
+    }
+
+    suspend fun updateQuiz(id: String, quiz: List<com.kuliahku.data.model.QuizQuestion>): Result<Unit> = runCatching {
+        val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
+        col(uid).document(id).update(
+            "quiz", quiz,
+            "updatedAt", FieldValue.serverTimestamp()
+        ).await()
+        Unit
+    }
+
+    suspend fun updateFlashcards(id: String, flashcards: List<com.kuliahku.data.model.Flashcard>): Result<Unit> = runCatching {
+        val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
+        col(uid).document(id).update(
+            "flashcards", flashcards,
+            "updatedAt", FieldValue.serverTimestamp()
+        ).await()
+        Unit
+    }
+
+    suspend fun updateReferences(id: String, references: List<com.kuliahku.data.model.JournalReference>): Result<Unit> = runCatching {
+        val uid = auth.currentUser?.uid ?: error("Sesi tidak ditemukan.")
+        col(uid).document(id).update(
+            "suggestedReferences", references,
+            "updatedAt", FieldValue.serverTimestamp()
         ).await()
         Unit
     }

@@ -15,6 +15,7 @@ object NotificationChannels {
     const val DEADLINE = "deadline_channel"
     const val AGENDA = "agenda_channel"
     const val FINANCE = "finance_channel"
+    const val MATERIAL = "material_channel"
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -76,6 +77,17 @@ object NotificationChannels {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
 
+        // Channel material.
+        val material = NotificationChannel(
+            MATERIAL,
+            "Materi Baru",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Notifikasi materi baru yang diproses AI"
+            enableVibration(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+
         // Channel alarm khusus.
         val alarm = NotificationChannel(
             "$AGENDA.alarm",
@@ -101,6 +113,7 @@ object NotificationChannels {
                 deadline,
                 agenda,
                 finance,
+                material,
                 alarm
             )
         )

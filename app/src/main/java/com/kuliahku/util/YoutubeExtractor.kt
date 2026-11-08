@@ -7,61 +7,65 @@ import java.util.regex.Pattern
 
 object YoutubeExtractor {
 
+    data class YoutubeData(
+        val title: String,
+        val description: String,
+        val transcript: String?
+    )
+
     /**
-     * Mengekstrak transcript dari video YouTube berdasarkan URL.
-     * Menggunakan metode scraping untuk mencari captionTracks dalam metadata halaman.
+     * Mengekstrak data video YouTube (Judul, Deskripsi, Transcript).
      */
-    suspend fun extractTranscript(url: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun extractData(url: String): Result<YoutubeData> = withContext(Dispatchers.IO) {
         runCatching {
             val videoId = extractVideoId(url) ?: throw Exception("URL YouTube tidak valid")
             
-            // 1. Ambil halaman video dengan User Agent browser desktop
             val response = Jsoup.connect("https://www.youtube.com/watch?v=$videoId")
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
                 .header("Accept-Language", "id,en-US;q=0.9,en;q=0.8")
                 .timeout(15_000)
                 .get()
-                .html()
 
-            // 2. Cari captionTracks di dalam JSON player response
-            // Pola: "captionTracks":[{"baseUrl":"..."
-            val regex = Pattern.compile("\"captionTracks\":\\[(.*?)\\]")
-            val matcher = regex.matcher(response)
-            
-            if (!matcher.find()) {
-                throw Exception("Transcript tidak tersedia untuk video ini. Pastikan video memiliki subtitle.")
+            val title = response.select("meta[name=title]").attr("content").ifBlank { 
+                response.title().replace(" - YouTube", "") 
             }
+            val description = response.select("meta[name=description]").attr("content")
             
-            val tracksJson = matcher.group(1) ?: throw Exception("Gagal mengekstrak data transcript")
+            val html = response.html()
+            val transcript = tryExtractTranscript(html)
+
+            YoutubeData(title, description, transcript)
+        }
+    }
+
+    private fun tryExtractTranscript(html: String): String? {
+        return try {
+            val regex = Pattern.compile("\"captionTracks\":\\[(.*?)\\]")
+            val matcher = regex.matcher(html)
             
-            // Cari baseUrl untuk transcript. Kita ambil yang pertama (biasanya default language)
+            if (!matcher.find()) return null
+            
+            val tracksJson = matcher.group(1) ?: return null
             val urlRegex = Pattern.compile("\"baseUrl\":\"(.*?)\"")
             val urlMatcher = urlRegex.matcher(tracksJson)
             
-            if (!urlMatcher.find()) {
-                throw Exception("Gagal menemukan URL transcript dalam metadata")
-            }
+            if (!urlMatcher.find()) return null
             
             var transcriptUrl = urlMatcher.group(1)!!
-            // Decode unicode escape sequences (\u0026 -> &)
             transcriptUrl = transcriptUrl.replace("\\u0026", "&")
             
-            // 3. Ambil isi transcript (format XML dari YouTube)
             val transcriptDoc = Jsoup.connect(transcriptUrl)
                 .userAgent("Mozilla/5.0")
                 .timeout(10_000)
                 .get()
             
-            // 4. Parse XML <text> tags
             val textNodes = transcriptDoc.select("text")
-            if (textNodes.isEmpty()) {
-                throw Exception("Transcript kosong atau gagal dimuat.")
-            }
+            if (textNodes.isEmpty()) return null
             
             val fullText = textNodes.joinToString(" ") { it.text() }
-            
-            // Unescape HTML entities (seperti &#39; -> ')
             Jsoup.parse(fullText).text()
+        } catch (e: Exception) {
+            null
         }
     }
 

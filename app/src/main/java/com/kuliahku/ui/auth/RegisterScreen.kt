@@ -1,36 +1,27 @@
 package com.kuliahku.ui.auth
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.ClickableText
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.layout
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.draw.shadow
-import com.kuliahku.R
-import com.kuliahku.ui.components.AnimatedEntry
-import com.kuliahku.ui.components.KuliahkuLogo
-import com.kuliahku.ui.components.PillTextField
-import com.kuliahku.ui.components.PrimaryPillButton
-import com.kuliahku.ui.theme.cardShadow
+import com.kuliahku.ui.components.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
@@ -38,149 +29,130 @@ fun RegisterScreen(
     viewModel: RegisterViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val scrollState = rememberScrollState()
+    val snackbar = remember { SnackbarHostState() }
+    val p = formPalette()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { if (it is RegisterEvent.NavigateToHome) onRegisterSuccess() }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(scrollState)
-            .padding(horizontal = 24.dp)
-    ) {
-        Spacer(Modifier.height(32.dp))
-        AnimatedEntry(delay = 50) {
-            KuliahkuLogo(modifier = Modifier.height(32.dp))
-        }
-        
-        Spacer(Modifier.height(16.dp))
-        
-        // Ilustrasi Auth (Gunakan SVG yang sama dengan Login atau berbeda)
-        AnimatedEntry(delay = 100) {
-            Image(
-                painter = painterResource(id = R.drawable.img_auth),
-                contentDescription = null,
-                contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .layout { measurable, constraints ->
-                        val placeable = measurable.measure(
-                            constraints.copy(
-                                maxWidth = constraints.maxWidth + 48.dp.roundToPx()
-                            )
-                        )
-                        layout(placeable.width, placeable.height) {
-                            placeable.place(-24.dp.roundToPx(), 0)
-                        }
-                    }
-                    .height(180.dp)
-            )
-        }
-        
-        Spacer(Modifier.height(8.dp))
-        
-        AnimatedEntry(delay = 150) {
-            Column {
-                Text(
-                    text = "Registrasi",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Sudah Punya Akun? ", style = MaterialTheme.typography.bodyMedium)
-                    ClickableText(
-                        text = buildAnnotatedString {
-                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)) {
-                                append("Login")
-                            }
-                        },
-                        onClick = { onNavigateToLogin() }
-                    )
-                }
-            }
-        }
-        
-        Spacer(Modifier.height(24.dp))
+    FormScreen(snackbarHostState = snackbar, p = p) {
+        AuthHeader(
+            title = "Registrasi",
+            prompt = "Sudah punya akun?",
+            actionText = "Login",
+            onAction = onNavigateToLogin,
+            p = p,
+            art = AuthArt
+        )
 
         AnimatedEntry(delay = 200) {
-            PillTextField(
+            FormTextField(
+                label = "Nama Lengkap",
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
-                placeholder = "Nama Lengkap",
+                p = p,
+                placeholder = "Masukkan nama lengkap",
+                leadingIcon = Icons.Filled.Person,
                 error = state.nameError
             )
         }
-        Spacer(Modifier.height(20.dp))
+
+        FormSpacer()
+
         AnimatedEntry(delay = 250) {
-            PillTextField(
+            FormTextField(
+                label = "Email",
                 value = state.email,
                 onValueChange = viewModel::onEmailChange,
-                placeholder = "Email",
-                error = state.emailError,
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Email
+                p = p,
+                placeholder = "nama@email.com",
+                leadingIcon = Icons.Filled.Email,
+                keyboardType = KeyboardType.Email,
+                error = state.emailError
             )
         }
-        Spacer(Modifier.height(20.dp))
+
+        FormSpacer()
+
         AnimatedEntry(delay = 300) {
-            PillTextField(
+            FormTextField(
+                label = "Password",
                 value = state.password,
                 onValueChange = viewModel::onPasswordChange,
-                placeholder = "Password",
+                p = p,
+                placeholder = "Buat password",
+                leadingIcon = Icons.Filled.Lock,
                 isPassword = true,
                 error = state.passwordError
             )
         }
-        Spacer(Modifier.height(20.dp))
+
+        FormSpacer()
+
         AnimatedEntry(delay = 350) {
-            PillTextField(
+            FormTextField(
+                label = "NIM",
                 value = state.nim,
                 onValueChange = viewModel::onNimChange,
-                placeholder = "NIM",
-                error = state.nimError,
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                p = p,
+                placeholder = "Masukkan NIM",
+                leadingIcon = Icons.Filled.Badge,
+                keyboardType = KeyboardType.Number,
+                error = state.nimError
             )
         }
-        Spacer(Modifier.height(20.dp))
+
+        FormSpacer()
+
         AnimatedEntry(delay = 400) {
-            PillTextField(
+            FormTextField(
+                label = "Semester",
                 value = state.semester,
                 onValueChange = viewModel::onSemesterChange,
-                placeholder = "Semester",
-                error = state.semesterError,
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                p = p,
+                placeholder = "Masukkan semester",
+                leadingIcon = Icons.Filled.DateRange,
+                keyboardType = KeyboardType.Number,
+                error = state.semesterError
             )
         }
-        Spacer(Modifier.height(32.dp))
-        
+
+        FormSpacer()
+
+        AnimatedEntry(delay = 425) {
+            FormDropdownField(
+                label = "Program Studi",
+                options = state.prodiOptions.map { it to it },
+                selected = state.prodi,
+                p = p,
+                expanded = state.isProdiExpanded,
+                onToggle = viewModel::toggleProdiDropdown,
+                onSelect = viewModel::onProdiChange,
+                placeholder = "Pilih Program Studi",
+                error = state.prodiError
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        if (state.generalError != null) {
+            Text(
+                text = state.generalError!!,
+                color = p.error,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            )
+        }
+
         AnimatedEntry(delay = 450) {
-            PrimaryPillButton(
+            FormButton(
                 text = if (state.isLoading) "Memproses..." else "Registrasi",
-                onClick = viewModel::register,
+                p = p,
                 enabled = !state.isLoading,
-                modifier = Modifier.fillMaxWidth().height(56.dp)
+                onClick = viewModel::register
             )
         }
-        
-        Spacer(Modifier.height(16.dp))
-        
-        AnimatedEntry(delay = 500) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                ClickableText(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                            append("Lupa password kamu?")
-                        }
-                    },
-                    onClick = { /* ... */ }
-                )
-            }
-        }
-        
-        Spacer(Modifier.height(32.dp))
     }
 }

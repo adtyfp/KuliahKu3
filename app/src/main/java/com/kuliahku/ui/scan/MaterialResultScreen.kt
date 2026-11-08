@@ -1,6 +1,16 @@
 package com.kuliahku.ui.scan
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.view.WindowManager
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,39 +18,48 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import com.kuliahku.ui.theme.cardShadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,15 +69,12 @@ import com.kuliahku.data.model.ChatMessage
 import com.kuliahku.data.model.Flashcard
 import com.kuliahku.data.model.JournalReference
 import com.kuliahku.data.model.QuizQuestion
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.unit.TextUnit
+import com.kuliahku.ui.theme.cardShadow
 import java.text.NumberFormat
 import java.util.Locale
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PALET — sama dengan layar lain (Home, Keuangan, Tugas, Kalender).
-// Light : latar #FBFCFF, kartu putih, border #E0E0E0, aksen #0F79DC.
-// Dark  : latar #0E1220, kartu #171C2C, border #2A3350, teks #F1F4FF, aksen #3B6FE8.
+// PALET
 // ─────────────────────────────────────────────────────────────────────────────
 private class ResultPalette(
     val background: Color,
@@ -67,13 +83,16 @@ private class ResultPalette(
     val textPrimary: Color,
     val textSecondary: Color,
     val accent: Color,
+    val accentEnd: Color,
     val accentText: Color,
     val accentSoft: Color,
     val success: Color,
     val successSoft: Color,
     val danger: Color,
     val dangerSoft: Color
-)
+) {
+    val accentBrush: Brush get() = Brush.linearGradient(listOf(accent, accentEnd))
+}
 
 private val LightResultPalette = ResultPalette(
     background = Color(0xFFFBFCFF),
@@ -82,6 +101,7 @@ private val LightResultPalette = ResultPalette(
     textPrimary = Color.Black,
     textSecondary = Color(0xFF767678),
     accent = Color(0xFF0F79DC),
+    accentEnd = Color(0xFF4AA3F0),
     accentText = Color(0xFF0F79DC),
     accentSoft = Color(0xFFE3EEFB),
     success = Color(0xFF1E9E1E),
@@ -97,6 +117,7 @@ private val DarkResultPalette = ResultPalette(
     textPrimary = Color(0xFFF1F4FF),
     textSecondary = Color(0xFFA3ABC4),
     accent = Color(0xFF3B6FE8),
+    accentEnd = Color(0xFF6A8DFF),
     accentText = Color(0xFF7BA0FF),
     accentSoft = Color(0xFF1C2B55),
     success = Color(0xFF3DD083),
@@ -109,7 +130,11 @@ private val DarkResultPalette = ResultPalette(
 private fun resultPalette(): ResultPalette =
     if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkResultPalette else LightResultPalette
 
-/** Kartu standar: radius 16, border 1 dp, bayangan lembut (sama dengan kartu tugas). */
+// Ukuran layar yang dibagikan ke semua tab
+private val LocalHPad = compositionLocalOf { 20.dp }
+private val MaxContentWidth = 840.dp
+
+/** Kartu standar: radius 16, border 1 dp, bayangan lembut. */
 @Composable
 private fun Modifier.card(p: ResultPalette, radius: Dp = 16.dp): Modifier {
     val shape = RoundedCornerShape(radius)
@@ -128,6 +153,43 @@ private fun tabLabel(t: ResultTab): String = when (t) {
     else -> t.name.lowercase().replaceFirstChar { it.uppercase() }
 }
 
+private fun tabIcon(t: ResultTab): ImageVector = when (t) {
+    ResultTab.SUMMARY -> Icons.Filled.AutoAwesome
+    ResultTab.QUIZ -> Icons.Filled.Quiz
+    ResultTab.FLASHCARD -> Icons.Filled.Layers
+    ResultTab.CHAT -> Icons.Filled.QuestionAnswer
+    ResultTab.REFERENCE -> Icons.Filled.Bookmark
+    else -> Icons.Filled.Info
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+/**
+ * Memaksa mode keyboard "resize" selama layar ini tampil, lalu mengembalikan
+ * mode semula saat layar ditutup. Ini mencegah jendela ter-PAN ke atas
+ * (penyebab text field "terbang" dan judul menabrak status bar).
+ */
+@Composable
+private fun ForceAdjustResize() {
+    val context = LocalContext.current
+    DisposableEffect(Unit) {
+        val window = context.findActivity()?.window
+        val previous = window?.attributes?.softInputMode
+        @Suppress("DEPRECATION")
+        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose {
+            if (window != null && previous != null) window.setSoftInputMode(previous)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYAR UTAMA
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MaterialResultScreen(
     navController: NavHostController,
@@ -136,6 +198,16 @@ fun MaterialResultScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val p = resultPalette()
+
+    // Catat jumlah pesan saat pertama kali data dimuat untuk membedakan riwayat vs pesan baru
+    var initialMessagesSize by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(state.chatMessages) {
+        if (initialMessagesSize == null && state.chatMessages.isNotEmpty()) {
+            initialMessagesSize = state.chatMessages.size
+        }
+    }
+
+    ForceAdjustResize()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { ev ->
@@ -149,117 +221,159 @@ fun MaterialResultScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = p.background,
-        contentColor = p.textPrimary
+        contentColor = p.textPrimary,
+        contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            // ── Header: chevron + judul materi ──────────────────────────────────
-            Row(
-                Modifier.fillMaxWidth().padding(start = 14.dp, end = 20.dp, top = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Filled.ArrowBackIosNew, "Kembali", Modifier.size(24.dp), tint = p.textPrimary)
-                }
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    state.material?.title ?: "Hasil Materi",
-                    fontSize = 22.sp,
-                    lineHeight = 30.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = p.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                // Padding system bars sudah dipakai di atas → tandai terpakai
+                // supaya imePadding() hanya menambah selisih tinggi keyboard.
+                .consumeWindowInsets(padding)
+                .imePadding(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            val hPad = if (maxWidth < 360.dp) 16.dp else 20.dp
+            val isChat = state.tab == ResultTab.CHAT
 
-            Spacer(Modifier.height(12.dp))
+            CompositionLocalProvider(LocalHPad provides hPad) {
+                Column(Modifier.fillMaxHeight().widthIn(max = MaxContentWidth).fillMaxWidth()) {
+                    // ── Header ──────────────────────────────────────────────────
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = hPad, end = hPad, top = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(p.surface)
+                                .border(1.dp, p.border, CircleShape)
+                                .clickable { navController.popBackStack() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.ArrowBackIosNew, "Kembali", Modifier.size(18.dp), tint = p.textPrimary)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                state.material?.title ?: "Hasil Materi",
+                                fontSize = 20.sp,
+                                lineHeight = 26.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = p.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                "Belajar dengan bantuan AI",
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                color = p.textSecondary
+                            )
+                        }
+                    }
 
-            // ── Banner AI ───────────────────────────────────────────────────────
-            Row(
-                Modifier
-                    .padding(horizontal = 20.dp)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(p.accentSoft)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Filled.Info, null, tint = p.accentText, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    AiClient.LABEL_AI,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = p.accentText
-                )
-            }
+                    Spacer(Modifier.height(12.dp))
 
-            Spacer(Modifier.height(14.dp))
+                    // ── Banner AI (disembunyikan di tab Chat agar ruang chat lebih lega) ──
+                    AnimatedVisibility(
+                        visible = !isChat,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column {
+                            Row(
+                                Modifier
+                                    .padding(horizontal = hPad)
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(p.accentSoft)
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.Info, null, tint = p.accentText, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    AiClient.LABEL_AI,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = p.accentText
+                                )
+                            }
+                            Spacer(Modifier.height(12.dp))
+                        }
+                    }
 
-            // ── Tab sebagai chip pill (gaya yang sama dengan filter Tugas) ─────────
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ResultTab.entries.forEach { t ->
-                    TabChip(tabLabel(t), selected = state.tab == t, p = p) { viewModel.setTab(t) }
-                }
-            }
+                    // ── Tab chip dengan ikon ─────────────────────────────────────
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = hPad),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ResultTab.entries.forEach { t ->
+                            TabChip(tabLabel(t), tabIcon(t), selected = state.tab == t, p = p) { viewModel.setTab(t) }
+                        }
+                    }
 
-            if (state.isAiWorking) {
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                        color = p.accent,
-                        trackColor = p.border
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(state.aiProgress, fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
-                }
-            } else {
-                Spacer(Modifier.height(4.dp))
-            }
+                    if (state.isAiWorking && !isChat) {
+                        Column(Modifier.padding(horizontal = hPad, vertical = 12.dp)) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                                color = p.accent,
+                                trackColor = p.border
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(state.aiProgress, fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
+                        }
+                    } else {
+                        Spacer(Modifier.height(4.dp))
+                    }
 
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                when (state.tab) {
-                    ResultTab.SUMMARY -> SummaryTab(
-                        summary = state.summary,
-                        p = p,
-                        onGenerate = viewModel::generateSummary,
-                        onSaveNote = viewModel::saveAsNote
-                    )
-                    ResultTab.QUIZ -> QuizTab(
-                        quiz = state.quiz,
-                        answers = state.quizAnswers,
-                        submitted = state.quizSubmitted,
-                        score = state.quizScore,
-                        p = p,
-                        onSelect = viewModel::selectAnswer,
-                        onSubmit = viewModel::submitQuiz,
-                        onGenerate = viewModel::generateQuiz
-                    )
-                    ResultTab.FLASHCARD -> FlashcardTab(
-                        cards = state.flashcards,
-                        p = p,
-                        onGenerate = viewModel::generateFlashcards
-                    )
-                    ResultTab.CHAT -> ChatTab(
-                        messages = state.chatMessages,
-                        input = state.chatInput,
-                        p = p,
-                        onInput = viewModel::onChatInput,
-                        onSend = viewModel::sendChat
-                    )
-                    ResultTab.REFERENCE -> ReferenceTab(
-                        references = state.suggestedReferences,
-                        p = p,
-                        onGenerate = viewModel::generateReferences
-                    )
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        when (state.tab) {
+                            ResultTab.SUMMARY -> SummaryTab(
+                                summary = state.summary,
+                                p = p,
+                                onGenerate = viewModel::generateSummary,
+                                onSaveNote = viewModel::saveAsNote
+                            )
+                            ResultTab.QUIZ -> QuizTab(
+                                quiz = state.quiz,
+                                answers = state.quizAnswers,
+                                submitted = state.quizSubmitted,
+                                score = state.quizScore,
+                                p = p,
+                                onSelect = viewModel::selectAnswer,
+                                onSubmit = viewModel::submitQuiz,
+                                onGenerate = viewModel::generateQuiz
+                            )
+                            ResultTab.FLASHCARD -> FlashcardTab(
+                                cards = state.flashcards,
+                                p = p,
+                                onGenerate = viewModel::generateFlashcards
+                            )
+                            ResultTab.CHAT -> ChatTab(
+                                messages = state.chatMessages,
+                                initialSize = initialMessagesSize,
+                                input = state.chatInput,
+                                isTyping = state.isAiWorking,
+                                p = p,
+                                onInput = viewModel::onChatInput,
+                                onSend = viewModel::sendChat
+                            )
+                            ResultTab.REFERENCE -> ReferenceTab(
+                                references = state.suggestedReferences,
+                                p = p,
+                                onGenerate = viewModel::generateReferences
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -269,18 +383,20 @@ fun MaterialResultScreen(
 // ── Komponen umum ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun TabChip(label: String, selected: Boolean, p: ResultPalette, onClick: () -> Unit) {
+private fun TabChip(label: String, icon: ImageVector, selected: Boolean, p: ResultPalette, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
-    Box(
+    Row(
         Modifier
-            .height(36.dp)
+            .height(38.dp)
             .clip(shape)
             .background(if (selected) p.accent else p.surface)
             .then(if (selected) Modifier else Modifier.border(1.dp, p.border, shape))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(icon, null, Modifier.size(16.dp), tint = if (selected) Color.White else p.textSecondary)
+        Spacer(Modifier.width(6.dp))
         Text(
             label,
             fontSize = 14.sp,
@@ -293,7 +409,7 @@ private fun TabChip(label: String, selected: Boolean, p: ResultPalette, onClick:
     }
 }
 
-/** Tombol pill 52 dp, sama dengan tombol Submit di layar form. */
+/** Tombol pill gradien 52 dp. */
 @Composable
 private fun ActionButton(
     text: String,
@@ -307,7 +423,10 @@ private fun ActionButton(
             .fillMaxWidth()
             .height(52.dp)
             .clip(CircleShape)
-            .background(p.accent.copy(alpha = if (enabled) 1f else 0.4f))
+            .then(
+                if (enabled) Modifier.background(p.accentBrush)
+                else Modifier.background(p.accent.copy(alpha = 0.35f))
+            )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -315,36 +434,41 @@ private fun ActionButton(
     }
 }
 
-/** Keadaan kosong: ikon di lingkaran lembut, pesan, lalu tombol aksi. */
+/** Keadaan kosong: ikon di lingkaran lembut, judul, pesan, lalu tombol aksi. */
 @Composable
 private fun EmptyState(
     icon: ImageVector,
+    title: String,
     message: String,
     buttonText: String,
     p: ResultPalette,
     onClick: () -> Unit
 ) {
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 40.dp),
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 40.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            Modifier.size(72.dp).clip(CircleShape).background(p.accentSoft),
+            Modifier.size(88.dp).clip(CircleShape).background(p.accentSoft),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, null, tint = p.accentText, modifier = Modifier.size(32.dp))
+            Box(
+                Modifier.size(60.dp).clip(CircleShape).background(p.accentBrush),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(30.dp))
+            }
         }
-        Spacer(Modifier.height(16.dp))
-        Text(
-            message,
-            fontSize = 14.sp,
-            lineHeight = 21.sp,
-            color = p.textSecondary,
-            textAlign = TextAlign.Center
-        )
+        Spacer(Modifier.height(20.dp))
+        Text(title, fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, color = p.textPrimary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(6.dp))
+        Text(message, fontSize = 14.sp, lineHeight = 21.sp, color = p.textSecondary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(24.dp))
-        ActionButton(buttonText, onClick, p, Modifier.widthIn(max = 280.dp))
+        ActionButton(buttonText, onClick, p, Modifier.widthIn(max = 300.dp))
     }
 }
 
@@ -352,7 +476,8 @@ private fun EmptyState(
 
 @Composable
 private fun SummaryTab(summary: String?, p: ResultPalette, onGenerate: () -> Unit, onSaveNote: () -> Unit) {
-    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val hPad = LocalHPad.current
+    val clipboardManager = LocalClipboardManager.current
     var isCopied by remember { mutableStateOf(false) }
 
     LaunchedEffect(isCopied) {
@@ -365,7 +490,8 @@ private fun SummaryTab(summary: String?, p: ResultPalette, onGenerate: () -> Uni
     if (summary.isNullOrBlank()) {
         EmptyState(
             icon = Icons.Filled.AutoAwesome,
-            message = "Belum ada ringkasan. Ketuk tombol di bawah untuk membuat ringkasan AI.",
+            title = "Belum ada ringkasan",
+            message = "Ketuk tombol di bawah untuk membuat ringkasan materi dengan AI.",
             buttonText = "Buat Ringkasan",
             p = p,
             onClick = onGenerate
@@ -376,42 +502,60 @@ private fun SummaryTab(summary: String?, p: ResultPalette, onGenerate: () -> Uni
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .padding(horizontal = hPad, vertical = 12.dp)
     ) {
-        Column(Modifier.fillMaxWidth().card(p, 20.dp).padding(20.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(Modifier.fillMaxWidth().card(p, 20.dp).padding(18.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(32.dp).clip(CircleShape).background(p.accentSoft),
+                    Modifier.size(34.dp).clip(CircleShape).background(p.accentSoft),
                     contentAlignment = Alignment.Center
                 ) { Icon(Icons.Filled.AutoAwesome, null, tint = p.accentText, modifier = Modifier.size(18.dp)) }
                 Spacer(Modifier.width(10.dp))
-                Text("Ringkasan", fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, color = p.textPrimary)
-                Spacer(Modifier.weight(1f))
-                IconButton(
-                    onClick = {
-                        clipboardManager.setText(AnnotatedString(summary))
-                        isCopied = true
-                    },
-                    modifier = Modifier.size(28.dp)
+                Text(
+                    "Ringkasan",
+                    fontSize = 18.sp, lineHeight = 26.sp,
+                    fontWeight = FontWeight.SemiBold, color = p.textPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(p.accentSoft)
+                        .clickable { onGenerate() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Regenerasi Ringkasan",
+                        tint = p.accentText,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (isCopied) p.successSoft else p.accentSoft)
+                        .clickable {
+                            clipboardManager.setText(AnnotatedString(summary))
+                            isCopied = true
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
                         contentDescription = "Salin Ringkasan",
-                        tint = if (isCopied) p.success else p.textSecondary,
-                        modifier = Modifier.size(20.dp)
+                        tint = if (isCopied) p.success else p.accentText,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = p.border)
             Spacer(Modifier.height(14.dp))
-            MarkdownText(
-                summary,
-                fontSize = 15.sp,
-                lineHeight = 24.sp,
-                color = p.textPrimary
-            )
+            MarkdownText(summary, fontSize = 15.sp, lineHeight = 24.sp, color = p.textPrimary)
         }
         Spacer(Modifier.height(20.dp))
         ActionButton("Simpan sebagai Catatan", onSaveNote, p)
@@ -434,10 +578,12 @@ private fun QuizTab(
     onSubmit: () -> Unit,
     onGenerate: () -> Unit
 ) {
+    val hPad = LocalHPad.current
     if (quiz.isEmpty()) {
         EmptyState(
             icon = Icons.Filled.Quiz,
-            message = "Belum ada kuis.",
+            title = "Belum ada kuis",
+            message = "Uji pemahamanmu dengan soal pilihan ganda yang dibuat dari materi ini.",
             buttonText = "Buat 10 Soal",
             p = p,
             onClick = onGenerate
@@ -445,7 +591,7 @@ private fun QuizTab(
         return
     }
     LazyColumn(
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = hPad, end = hPad, top = 12.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         if (submitted) {
@@ -455,14 +601,14 @@ private fun QuizTab(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
-                        .background(p.accentSoft)
+                        .background(p.accentBrush)
                         .padding(20.dp)
                 ) {
-                    Text("Skor Kamu", fontSize = 13.sp, lineHeight = 18.sp, color = p.accentText, fontWeight = FontWeight.Medium)
+                    Text("Skor Kamu", fontSize = 13.sp, lineHeight = 18.sp, color = Color.White.copy(alpha = 0.85f), fontWeight = FontWeight.Medium)
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text("$score / ${quiz.size}", fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, color = p.textPrimary)
+                        Text("$score / ${quiz.size}", fontSize = 34.sp, lineHeight = 42.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(Modifier.width(10.dp))
-                        Text("$percent%", fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, color = p.accentText)
+                        Text("$percent%", fontSize = 18.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.9f))
                     }
                     val topics = quiz.filterIndexed { i, q -> answers[i] != q.correctIndex }.map { it.topic }.distinct()
                     if (topics.isNotEmpty()) {
@@ -470,13 +616,49 @@ private fun QuizTab(
                         Text(
                             "Materi yang perlu dipelajari",
                             fontSize = 14.sp, lineHeight = 20.sp,
-                            fontWeight = FontWeight.SemiBold, color = p.textPrimary
+                            fontWeight = FontWeight.SemiBold, color = Color.White
                         )
                         Spacer(Modifier.height(4.dp))
                         topics.forEach {
-                            Text("• $it", fontSize = 14.sp, lineHeight = 22.sp, color = p.textPrimary)
+                            Text("• $it", fontSize = 14.sp, lineHeight = 22.sp, color = Color.White.copy(alpha = 0.95f))
                         }
                     }
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = onGenerate,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Refresh, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Buat Kuis Baru", color = Color.White, fontSize = 14.sp)
+                    }
+                }
+            }
+        } else {
+            item {
+                val progress = answers.size / quiz.size.toFloat()
+                Column {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Progres",
+                            fontSize = 12.sp, lineHeight = 16.sp,
+                            color = p.textSecondary, modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "${answers.size}/${quiz.size}",
+                            fontSize = 12.sp, lineHeight = 16.sp,
+                            fontWeight = FontWeight.SemiBold, color = p.accentText
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                        color = p.accent,
+                        trackColor = p.border
+                    )
                 }
             }
         }
@@ -494,7 +676,7 @@ private fun QuizTab(
                         q.question,
                         fontSize = 15.sp, lineHeight = 22.sp,
                         fontWeight = FontWeight.SemiBold, color = p.textPrimary,
-                        modifier = Modifier.padding(top = 3.dp)
+                        modifier = Modifier.weight(1f).padding(top = 3.dp)
                     )
                 }
                 Spacer(Modifier.height(12.dp))
@@ -508,7 +690,10 @@ private fun QuizTab(
                             !submitted && selected -> OptionState.SELECTED
                             else -> OptionState.IDLE
                         }
-                        OptionRow(opt, optState, p, enabled = !submitted) { onSelect(i, optIdx) }
+                        OptionRow(
+                            letter = ('A' + optIdx).toString(),
+                            text = opt, optState = optState, p = p, enabled = !submitted
+                        ) { onSelect(i, optIdx) }
                     }
                 }
             }
@@ -529,7 +714,14 @@ private fun QuizTab(
 }
 
 @Composable
-private fun OptionRow(text: String, optState: OptionState, p: ResultPalette, enabled: Boolean, onClick: () -> Unit) {
+private fun OptionRow(
+    letter: String,
+    text: String,
+    optState: OptionState,
+    p: ResultPalette,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
     val shape = RoundedCornerShape(12.dp)
     val container = when (optState) {
         OptionState.IDLE -> Color.Transparent
@@ -553,14 +745,13 @@ private fun OptionRow(text: String, optState: OptionState, p: ResultPalette, ena
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Indikator bulat: kosong / terisi / centang / silang
         Box(
             Modifier
-                .size(22.dp)
+                .size(26.dp)
                 .clip(CircleShape)
                 .then(
                     when (optState) {
-                        OptionState.IDLE -> Modifier.border(1.5.dp, p.border, CircleShape)
+                        OptionState.IDLE -> Modifier.border(1.dp, p.border, CircleShape)
                         OptionState.SELECTED -> Modifier.background(p.accent)
                         OptionState.CORRECT -> Modifier.background(p.success)
                         OptionState.WRONG -> Modifier.background(p.danger)
@@ -569,14 +760,14 @@ private fun OptionRow(text: String, optState: OptionState, p: ResultPalette, ena
             contentAlignment = Alignment.Center
         ) {
             when (optState) {
-                OptionState.SELECTED -> Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
-                OptionState.CORRECT -> Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                OptionState.WRONG -> Icon(Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                OptionState.IDLE -> {}
+                OptionState.CORRECT -> Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                OptionState.WRONG -> Icon(Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                OptionState.SELECTED -> Text(letter, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                OptionState.IDLE -> Text(letter, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = p.textSecondary)
             }
         }
         Spacer(Modifier.width(12.dp))
-        Text(text, fontSize = 14.sp, lineHeight = 21.sp, color = p.textPrimary)
+        Text(text, fontSize = 14.sp, lineHeight = 21.sp, color = p.textPrimary, modifier = Modifier.weight(1f))
     }
 }
 
@@ -584,22 +775,41 @@ private fun OptionRow(text: String, optState: OptionState, p: ResultPalette, ena
 
 @Composable
 private fun FlashcardTab(cards: List<Flashcard>, p: ResultPalette, onGenerate: () -> Unit) {
+    val hPad = LocalHPad.current
     if (cards.isEmpty()) {
         EmptyState(
             icon = Icons.Filled.Layers,
-            message = "Belum ada flashcard.",
+            title = "Belum ada flashcard",
+            message = "Buat kartu belajar untuk menghafal konsep penting dari materi ini.",
             buttonText = "Buat Flashcard",
             p = p,
             onClick = onGenerate
         )
         return
     }
-    LazyColumn(
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 300.dp),
+        contentPadding = PaddingValues(start = hPad, end = hPad, top = 12.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        itemsIndexed(cards) { index, c ->
-            FlashcardItem(index = index, total = cards.size, card = c, p = p)
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Text("Ketuk kartu untuk membalik", fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
+        }
+        items(cards.size) { index ->
+            FlashcardItem(index = index, total = cards.size, card = cards[index], p = p)
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            OutlinedButton(
+                onClick = onGenerate,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, p.border)
+            ) {
+                Icon(Icons.Default.Refresh, null, tint = p.textSecondary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Regenerasi Flashcard", color = p.textSecondary)
+            }
         }
     }
 }
@@ -612,13 +822,12 @@ private fun FlashcardItem(index: Int, total: Int, card: Flashcard, p: ResultPale
         animationSpec = tween(durationMillis = 500),
         label = "flashcardFlip"
     )
-
     val shape = RoundedCornerShape(20.dp)
-    
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 180.dp)
+            .heightIn(min = 190.dp)
             .graphicsLayer {
                 rotationY = rotation
                 cameraDistance = 12f * density
@@ -631,24 +840,10 @@ private fun FlashcardItem(index: Int, total: Int, card: Flashcard, p: ResultPale
         contentAlignment = Alignment.Center
     ) {
         if (rotation <= 90f) {
-            // Front Side
-            FlashcardSide(
-                label = "PERTANYAAN",
-                content = card.front,
-                pageInfo = "${index + 1} / $total",
-                isBack = false,
-                p = p
-            )
+            FlashcardSide("PERTANYAAN", card.front, "${index + 1} / $total", false, p)
         } else {
-            // Back Side (flipped again to face forward)
             Box(Modifier.graphicsLayer { rotationY = 180f }) {
-                FlashcardSide(
-                    label = "JAWABAN",
-                    content = card.back,
-                    pageInfo = "${index + 1} / $total",
-                    isBack = true,
-                    p = p
-                )
+                FlashcardSide("JAWABAN", card.back, "${index + 1} / $total", true, p)
             }
         }
     }
@@ -664,11 +859,14 @@ private fun FlashcardSide(
 ) {
     Column(Modifier.padding(20.dp).fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                label,
-                fontSize = 11.sp, lineHeight = 14.sp,
-                fontWeight = FontWeight.Bold, color = p.accentText
-            )
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isBack) p.surface else p.accentSoft)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(label, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, color = p.accentText)
+            }
             Spacer(Modifier.weight(1f))
             Text(pageInfo, fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary)
         }
@@ -698,113 +896,295 @@ private fun FlashcardSide(
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
 
+private val ChatSuggestions = listOf(
+    "Jelaskan konsep utama materi ini",
+    "Buatkan contoh soal",
+    "Apa poin yang paling penting?"
+)
+
 @Composable
 private fun ChatTab(
     messages: List<ChatMessage>,
+    initialSize: Int?,
     input: String,
+    isTyping: Boolean,
     p: ResultPalette,
     onInput: (String) -> Unit,
     onSend: () -> Unit
 ) {
+    val hPad = LocalHPad.current
     val listState = rememberLazyListState()
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    val canSend = input.isNotBlank()
+
+    // Scroll ke pesan terakhir saat ada pesan baru, indikator mengetik, atau keyboard muncul.
+    LaunchedEffect(messages.size, isTyping, imeVisible) {
+        val lastIndex = messages.size - 1 + if (isTyping) 1 else 0
+        if (lastIndex >= 0) listState.animateScrollToItem(lastIndex)
     }
 
-    Column(Modifier.fillMaxSize().imePadding()) {
-        if (messages.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(
-                    "Tanyakan apa saja tentang materi ini.",
-                    fontSize = 14.sp, lineHeight = 21.sp, color = p.textSecondary,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                itemsIndexed(messages) { _, msg ->
-                    val isUser = msg.role == "user"
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
-                    ) {
-                        val shape = RoundedCornerShape(
-                            topStart = 18.dp, topEnd = 18.dp,
-                            bottomStart = if (isUser) 18.dp else 4.dp,
-                            bottomEnd = if (isUser) 4.dp else 18.dp
-                        )
+    // TIDAK ada imePadding() di sini — sudah ditangani sekali di root layar.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val maxBubble = maxWidth * 0.82f
+
+        Column(Modifier.fillMaxSize()) {
+            if (messages.isEmpty()) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = hPad, vertical = 16.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Saat keyboard terbuka ikon disembunyikan agar saran tetap muat.
+                    if (!imeVisible) {
+                        Box(
+                            Modifier.size(64.dp).clip(CircleShape).background(p.accentSoft),
+                            contentAlignment = Alignment.Center
+                        ) { Icon(Icons.Filled.QuestionAnswer, null, tint = p.accentText, modifier = Modifier.size(28.dp)) }
+                        Spacer(Modifier.height(14.dp))
+                    }
+                    Text(
+                        "Yuk, tanya apa saja soal materi ini!",
+                        fontSize = 16.sp, lineHeight = 24.sp,
+                        fontWeight = FontWeight.SemiBold, color = p.textPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    ChatSuggestions.forEach { s ->
+                        val shape = RoundedCornerShape(16.dp)
                         Box(
                             Modifier
-                                .widthIn(max = 280.dp)
+                                .padding(vertical = 6.dp)
+                                .widthIn(max = 420.dp)
+                                .fillMaxWidth()
                                 .clip(shape)
-                                .background(if (isUser) p.accent else p.surface)
-                                .then(if (isUser) Modifier else Modifier.border(1.dp, p.border, shape))
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .background(p.surface)
+                                .border(1.dp, p.border, shape)
+                                .clickable { onInput(s) }
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
                         ) {
-                            if (isUser) {
-                                Text(
-                                    msg.content,
-                                    fontSize = 14.sp, lineHeight = 21.sp,
-                                    color = Color.White
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.TipsAndUpdates,
+                                    null,
+                                    tint = p.accent,
+                                    modifier = Modifier.size(18.dp)
                                 )
-                            } else {
-                                MarkdownText(
-                                    msg.content,
-                                    fontSize = 14.sp, lineHeight = 21.sp,
-                                    color = p.textPrimary
-                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(s, fontSize = 14.sp, lineHeight = 20.sp, color = p.textPrimary)
                             }
                         }
                     }
                 }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = hPad, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(
+                        count = messages.size,
+                        key = { i ->
+                            val m = messages[i]
+                            "${m.role}_${m.timestamp?.seconds ?: i}_${m.content.hashCode()}"
+                        }
+                    ) { index ->
+                        val msg = messages[index]
+                        // Animasikan hanya jika pesan baru (index >= initialSize) dan milik AI
+                        val shouldAnimate = initialSize != null && index >= initialSize && msg.role == "ai"
+                        ChatBubble(
+                            msg = msg,
+                            p = p,
+                            maxBubbleWidth = maxBubble,
+                            animate = shouldAnimate
+                        )
+                    }
+                    if (isTyping) {
+                        item(key = "typing_indicator") { TypingBubble(p) }
+                    }
+                }
+            }
+
+            // Kolom input — selalu menempel tepat di atas keyboard.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = hPad, end = hPad, top = 8.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                val fieldShape = RoundedCornerShape(26.dp)
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = 52.dp)
+                        .clip(fieldShape)
+                        .background(p.surface)
+                        .border(1.dp, p.border, fieldShape)
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    BasicTextField(
+                        value = input,
+                        onValueChange = onInput,
+                        maxLines = 4,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 15.sp, lineHeight = 22.sp, color = p.textPrimary
+                        ),
+                        cursorBrush = SolidColor(p.accent),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { if (canSend) onSend() }),
+                        modifier = Modifier.fillMaxWidth(),
+                        decorationBox = { inner ->
+                            if (input.isEmpty()) {
+                                Text("Tanya apa saja...", fontSize = 15.sp, lineHeight = 22.sp, color = p.textSecondary)
+                            }
+                            inner()
+                        }
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .then(
+                            if (canSend) Modifier.background(p.accentBrush)
+                            else Modifier.background(p.accent.copy(alpha = 0.35f))
+                        )
+                        .clickable(enabled = canSend, onClick = onSend),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, "Kirim", tint = Color.White, modifier = Modifier.size(22.dp))
+                }
             }
         }
+    }
+}
 
-        // Kolom input pill + tombol kirim bulat (gaya sama dengan search bar + FAB di Tugas)
-        Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = 52.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(p.surface)
-                    .border(1.dp, p.border, RoundedCornerShape(26.dp))
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                if (input.isEmpty()) {
-                    Text("Tanya materi...", fontSize = 15.sp, lineHeight = 22.sp, color = p.textSecondary)
-                }
-                BasicTextField(
-                    value = input,
-                    onValueChange = onInput,
-                    maxLines = 4,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 15.sp, lineHeight = 22.sp, color = p.textPrimary
-                    ),
-                    cursorBrush = SolidColor(p.textPrimary),
-                    modifier = Modifier.fillMaxWidth()
-                )
+@Composable
+private fun ChatBubble(msg: ChatMessage, p: ResultPalette, maxBubbleWidth: Dp, animate: Boolean) {
+    val isUser = msg.role == "user"
+    val content = msg.content
+    
+    // Gunakan rememberSaveable agar teks yang sudah ditampilkan tidak hilang saat recomposition.
+    // Inisialisasi dengan teks kosong hanya jika pesan perlu dianimasikan.
+    var displayedText by rememberSaveable(content, animate) { 
+        mutableStateOf(if (animate) "" else content) 
+    }
+
+    LaunchedEffect(content, animate) {
+        // Hanya jalankan animasi mengetik jika flag animate aktif dan teks masih kosong
+        if (animate && displayedText.isEmpty() && content.isNotEmpty()) {
+            val words = content.split(" ")
+            val sb = StringBuilder()
+            for (i in words.indices) {
+                sb.append(words[i])
+                if (i < words.size - 1) sb.append(" ")
+                displayedText = sb.toString()
+                kotlinx.coroutines.delay(30)
             }
-            Spacer(Modifier.width(10.dp))
-            val canSend = input.isNotBlank()
-            Box(
-                Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(p.accent.copy(alpha = if (canSend) 1f else 0.4f))
-                    .clickable(enabled = canSend, onClick = onSend),
-                contentAlignment = Alignment.Center
+        } else {
+            displayedText = content
+        }
+    }
+
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        if (!isUser) {
+            AiAvatar(p)
+            Spacer(Modifier.width(8.dp))
+        }
+        val shape = RoundedCornerShape(
+            topStart = 18.dp, topEnd = 18.dp,
+            bottomStart = if (isUser) 18.dp else 4.dp,
+            bottomEnd = if (isUser) 4.dp else 18.dp
+        )
+        Box(
+            Modifier
+                .widthIn(max = maxBubbleWidth)
+                .clip(shape)
+                .then(if (isUser) Modifier.background(p.accentBrush) else Modifier.background(p.surface))
+                .then(if (isUser) Modifier else Modifier.border(1.dp, p.border, shape))
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            if (isUser) {
+                Text(displayedText, fontSize = 14.sp, lineHeight = 21.sp, color = Color.White)
+            } else {
+                MarkdownText(displayedText, fontSize = 14.sp, lineHeight = 21.sp, color = p.textPrimary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiAvatar(p: ResultPalette) {
+    Box(
+        Modifier.size(28.dp).clip(CircleShape).background(p.accentSoft),
+        contentAlignment = Alignment.Center
+    ) { Icon(Icons.Filled.AutoAwesome, null, tint = p.accentText, modifier = Modifier.size(16.dp)) }
+}
+
+@Composable
+private fun TypingBubble(p: ResultPalette) {
+    val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp)
+    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+    
+    val dot1Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, delayMillis = 0),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot1"
+    )
+    val dot2Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, delayMillis = 200),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot2"
+    )
+    val dot3Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, delayMillis = 400),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot3"
+    )
+
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        AiAvatar(p)
+        Spacer(Modifier.width(8.dp))
+        Box(
+            Modifier
+                .clip(shape)
+                .background(p.surface)
+                .border(1.dp, p.border, shape)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, "Kirim", tint = Color.White, modifier = Modifier.size(22.dp))
+                Box(Modifier.size(6.dp).clip(CircleShape).background(p.textSecondary.copy(alpha = dot1Alpha)))
+                Box(Modifier.size(6.dp).clip(CircleShape).background(p.textSecondary.copy(alpha = dot2Alpha)))
+                Box(Modifier.size(6.dp).clip(CircleShape).background(p.textSecondary.copy(alpha = dot3Alpha)))
             }
         }
     }
@@ -815,9 +1195,11 @@ private fun ChatTab(
 @Composable
 private fun ReferenceTab(references: List<JournalReference>, p: ResultPalette, onGenerate: () -> Unit) {
     val context = LocalContext.current
+    val hPad = LocalHPad.current
     if (references.isEmpty()) {
         EmptyState(
             icon = Icons.Filled.Search,
+            title = "Belum ada referensi",
             message = "Temukan referensi jurnal akademik yang relevan dengan materi ini.",
             buttonText = "Cari Referensi AI",
             p = p,
@@ -825,13 +1207,27 @@ private fun ReferenceTab(references: List<JournalReference>, p: ResultPalette, o
         )
         return
     }
-    LazyColumn(
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 320.dp),
+        contentPadding = PaddingValues(start = hPad, end = hPad, top = 12.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.padding(bottom = 4.dp)) {
-                Text("Referensi Terkait", fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, color = p.textPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Referensi Terkait",
+                        fontSize = 20.sp,
+                        lineHeight = 28.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = p.textPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onGenerate) {
+                        Icon(Icons.Default.Refresh, "Cari Ulang", tint = p.textSecondary)
+                    }
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
                     "AI telah merangkum kata kunci dari materi dan mencari jurnal yang relevan.",
@@ -839,14 +1235,14 @@ private fun ReferenceTab(references: List<JournalReference>, p: ResultPalette, o
                 )
             }
         }
-        itemsIndexed(references) { _, ref ->
+        items(references.size) { idx ->
+            val ref = references[idx]
             ReferenceItem(ref = ref, p = p) {
                 val urlString = ref.doi ?: "https://openalex.org/works/${ref.id}"
                 try {
                     val url = urlString.toUri()
                     if (url.scheme != null && url.host != null) {
-                        val intent = CustomTabsIntent.Builder().build()
-                        intent.launchUrl(context, url)
+                        CustomTabsIntent.Builder().build().launchUrl(context, url)
                     } else {
                         android.widget.Toast.makeText(context, "URL tidak valid", android.widget.Toast.LENGTH_SHORT).show()
                     }
@@ -872,7 +1268,7 @@ private fun ReferenceItem(ref: JournalReference, p: ResultPalette, onClick: () -
             ref.title,
             fontSize = 15.sp, lineHeight = 22.sp,
             fontWeight = FontWeight.SemiBold, color = p.textPrimary,
-            maxLines = 2, overflow = TextOverflow.Ellipsis
+            maxLines = 3, overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -894,10 +1290,10 @@ private fun ReferenceItem(ref: JournalReference, p: ResultPalette, onClick: () -
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.ThumbUp, null, modifier = Modifier.size(14.dp), tint = p.textSecondary)
-            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Filled.FormatQuote, null, modifier = Modifier.size(16.dp), tint = p.textSecondary)
+            Spacer(Modifier.width(4.dp))
             Text(
-                NumberFormat.getIntegerInstance(Locale("id", "ID")).format(ref.citedByCount),
+                NumberFormat.getIntegerInstance(Locale("id", "ID")).format(ref.citedByCount) + " sitasi",
                 fontSize = 12.sp, lineHeight = 16.sp, color = p.textSecondary
             )
             Spacer(Modifier.width(12.dp))
@@ -915,6 +1311,8 @@ private fun ReferenceItem(ref: JournalReference, p: ResultPalette, onClick: () -
     }
 }
 
+// ── Markdown sederhana ────────────────────────────────────────────────────────
+
 @Composable
 private fun MarkdownText(
     text: String,
@@ -923,26 +1321,45 @@ private fun MarkdownText(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    val annotatedString = buildAnnotatedString {
-        val lines = text.split("\n")
-        lines.forEachIndexed { index, line ->
-            var currentLine = line
-            if (currentLine.trimStart().startsWith("* ") || currentLine.trimStart().startsWith("- ")) {
-                append("  • ")
-                currentLine = currentLine.trimStart().removePrefix("* ").removePrefix("- ")
-            }
+    val annotatedString = remember(text) {
+        buildAnnotatedString {
+            val lines = text.split("\n")
+            lines.forEachIndexed { index, rawLine ->
+                var line = rawLine
+                val trimmed = line.trimStart()
+                val indent = line.length - trimmed.length
+                var headingLevel = 0
 
-            val parts = currentLine.split("**")
-            parts.forEachIndexed { partIndex, part ->
-                if (partIndex % 2 == 1) {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append(part)
+                when {
+                    trimmed.startsWith("### ") -> { headingLevel = 3; line = trimmed.removePrefix("### ") }
+                    trimmed.startsWith("## ") -> { headingLevel = 2; line = trimmed.removePrefix("## ") }
+                    trimmed.startsWith("# ") -> { headingLevel = 1; line = trimmed.removePrefix("# ") }
+                    trimmed.startsWith("* ") || trimmed.startsWith("- ") -> {
+                        append(if (indent >= 2) "      ◦ " else "  • ")
+                        line = trimmed.drop(2)
                     }
-                } else {
-                    append(part)
                 }
+
+                val parts = line.split("**")
+                parts.forEachIndexed { partIndex, part ->
+                    val bold = partIndex % 2 == 1
+                    when {
+                        headingLevel > 0 -> withStyle(
+                            SpanStyle(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = when (headingLevel) {
+                                    1 -> fontSize * 1.25f
+                                    2 -> fontSize * 1.15f
+                                    else -> fontSize * 1.05f
+                                }
+                            )
+                        ) { append(part) }
+                        bold -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(part) }
+                        else -> append(part)
+                    }
+                }
+                if (index < lines.size - 1) append("\n")
             }
-            if (index < lines.size - 1) append("\n")
         }
     }
     Text(

@@ -98,7 +98,10 @@ class MaterialResultViewModel @Inject constructor(
                             it.copy(
                                 material = material,
                                 summary = material?.summary,
+                                quiz = material?.quiz ?: emptyList(),
+                                flashcards = material?.flashcards ?: emptyList(),
                                 chatMessages = material?.chatHistory ?: emptyList(),
+                                suggestedReferences = material?.suggestedReferences ?: emptyList(),
                                 isLoading = false,
                                 error = if (material == null) {
                                     "Materi tidak ditemukan."
@@ -184,15 +187,22 @@ class MaterialResultViewModel @Inject constructor(
     // =====================================================
 
     fun generateQuiz() {
-        val text = _uiState.value.material?.extractedText
+        val material = _uiState.value.material
+        val text = material?.extractedText
+        val summary = _uiState.value.summary
 
         if (text.isNullOrBlank()) {
             showMessage("Teks materi belum tersedia untuk membuat kuis.")
             return
         }
 
+        // Gunakan gabungan teks asli dan ringkasan agar lebih fokus
+        val contextText = if (!summary.isNullOrBlank()) {
+            "RINGKASAN MATERI:\n$summary\n\nTEKS ASLI:\n$text"
+        } else text
+
         runAi("Membuat kuis...") {
-            when (val result = ai.generateQuiz(text, 10)) {
+            when (val result = ai.generateQuiz(contextText, 10)) {
                 is AiResult.Success -> {
                     if (result.data.isEmpty()) {
                         showMessage("AI tidak menghasilkan soal. Coba lagi.")
@@ -205,6 +215,7 @@ class MaterialResultViewModel @Inject constructor(
                                 quizScore = 0
                             )
                         }
+                        materialRepo.updateQuiz(_uiState.value.materialId, result.data)
                     }
                 }
 
@@ -224,15 +235,21 @@ class MaterialResultViewModel @Inject constructor(
     // =====================================================
 
     fun generateFlashcards() {
-        val text = _uiState.value.material?.extractedText
+        val material = _uiState.value.material
+        val text = material?.extractedText
+        val summary = _uiState.value.summary
 
         if (text.isNullOrBlank()) {
             showMessage("Teks materi belum tersedia untuk membuat flashcard.")
             return
         }
 
+        val contextText = if (!summary.isNullOrBlank()) {
+            "RINGKASAN MATERI:\n$summary\n\nTEKS ASLI:\n$text"
+        } else text
+
         runAi("Membuat flashcard...") {
-            when (val result = ai.generateFlashcards(text, 12)) {
+            when (val result = ai.generateFlashcards(contextText, 12)) {
                 is AiResult.Success -> {
                     if (result.data.isEmpty()) {
                         showMessage("AI tidak menghasilkan flashcard. Coba lagi.")
@@ -240,6 +257,7 @@ class MaterialResultViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(flashcards = result.data)
                         }
+                        materialRepo.updateFlashcards(_uiState.value.materialId, result.data)
                     }
                 }
 
@@ -396,14 +414,20 @@ class MaterialResultViewModel @Inject constructor(
 
     fun generateReferences() {
         val text = _uiState.value.material?.extractedText
+        val summary = _uiState.value.summary
 
         if (text.isNullOrBlank()) {
             showMessage("Teks materi belum tersedia untuk mencari referensi.")
             return
         }
 
+        // Gunakan gabungan teks asli dan ringkasan agar lebih fokus
+        val contextText = if (!summary.isNullOrBlank()) {
+            "RINGKASAN MATERI:\n$summary\n\nTEKS ASLI:\n$text"
+        } else text
+
         runAi("Mencari referensi jurnal...") {
-            when (val result = ai.suggestReferences(text)) {
+            when (val result = ai.suggestReferences(contextText)) {
                 is AiResult.Success -> {
                     val keywords = result.data
                         .map { it.trim() }
@@ -443,6 +467,8 @@ class MaterialResultViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(suggestedReferences = uniqueResults)
                     }
+
+                    materialRepo.updateReferences(_uiState.value.materialId, uniqueResults)
 
                     if (uniqueResults.isEmpty()) {
                         showMessage("Referensi jurnal belum ditemukan.")

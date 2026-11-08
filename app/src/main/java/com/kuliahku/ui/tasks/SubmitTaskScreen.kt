@@ -1,31 +1,30 @@
 package com.kuliahku.ui.tasks
 
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import com.kuliahku.R
 import com.kuliahku.data.model.TaskStatus
-import com.kuliahku.ui.components.PrimaryPillButton
-import com.kuliahku.ui.theme.cardShadow
+import com.kuliahku.ui.components.*
 import com.kuliahku.util.DateFormatters
 
 @Composable
@@ -36,6 +35,7 @@ fun SubmitTaskScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+    val p = formPalette()
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -44,153 +44,134 @@ fun SubmitTaskScreen(
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                SubmitTaskEvent.Submitted -> {
-                    navController.popBackStack()
-                }
+                SubmitTaskEvent.Submitted -> navController.popBackStack()
                 is SubmitTaskEvent.ShowMessage -> snackbar.showSnackbar(event.message)
             }
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    val task = state.task
+    val isDone = task?.statusEnum == TaskStatus.DONE
+
+    FormScreen(
+        snackbarHostState = snackbar,
+        p = p,
+        buttonText = if (isDone) null else when {
+            state.isUploading -> "Mengunggah..."
+            state.pickedUri == null -> "Tandai Selesai"
+            else -> "Kumpulkan"
+        },
+        buttonEnabled = !state.isUploading,
+        onButtonClick = { viewModel.submit() }
+    ) {
+        FormHeader(
+            title = "Kumpulkan Tugas",
+            subtitle = "Kumpulkan tugasmu sebelum deadline",
+            p = p,
+            onBack = { navController.popBackStack() },
+            art = TaskArt
+        )
+
+        FormReadOnlyField("Nama Tugas", task?.title ?: "-", p)
+        FormSpacer()
+        FormReadOnlyField(
+            "Deadline",
+            task?.deadline?.toDate()?.let { DateFormatters.formatDateTime(it) } ?: "-",
+            p
+        )
+        FormSpacer()
+        FormReadOnlyField("Deskripsi", task?.description?.ifBlank { "-" } ?: "-", p, minHeight = 96.dp)
+
+        FormSpacer()
+        FormSectionTitle("BERKAS TUGAS", p)
+
+        // Kartu upload (garis putus-putus)
+        val dashColor = if (state.pickedUri != null) p.accent else p.border
         Column(
             Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .fillMaxWidth()
+                .background(p.surface, RoundedCornerShape(14.dp))
+                .drawBehind {
+                    drawRoundRect(
+                        color = dashColor,
+                        cornerRadius = CornerRadius(14.dp.toPx()),
+                        style = Stroke(
+                            width = 1.5.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 12f))
+                        )
+                    )
+                }
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali")
+            Icon(Icons.Filled.CloudUpload, null, tint = p.accent, modifier = Modifier.size(36.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Upload file tugas",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = p.textPrimary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                state.pickedName.ifBlank { "PDF, DOCX, PPTX, Foto atau Video" },
+                fontSize = 13.sp,
+                color = p.textSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        picker.launch(
+                            arrayOf(
+                                "application/pdf",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                "image/*",
+                                "video/*"
+                            )
+                        )
+                    },
+                    enabled = !state.isUploading,
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text(if (state.pickedUri == null) "Pilih File" else "Ganti File", color = p.accent) }
+                if (state.pickedUri != null) {
+                    TextButton(onClick = viewModel::clearFile, enabled = !state.isUploading) {
+                        Text("Hapus", color = p.error)
+                    }
                 }
             }
 
-            // Ilustrasi maskot buku (menggantikan emoji 📖)
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Image(
-                    painter = painterResource(id = R.drawable.img_task_add),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.width(216.dp)
+            if (state.isUploading) {
+                Spacer(Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = { state.uploadProgress },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = p.accent,
+                    trackColor = p.border
                 )
+                Spacer(Modifier.height(4.dp))
+                Text("${(state.uploadProgress * 100).toInt()}%", fontSize = 12.sp, color = p.textSecondary)
+                TextButton(onClick = viewModel::cancelUpload) { Text("Batal Upload", color = p.error) }
             }
-            Spacer(Modifier.height(4.dp))
-            Text("Kumpulkan Tugas", style = MaterialTheme.typography.headlineLarge)
-            Text("Kumpulkan tugas mu sebelum deadline", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            Spacer(Modifier.height(20.dp))
+        }
 
-            val task = state.task
-            ReadOnlyField("Nama Tugas (dipanggil kembali)", task?.title ?: "-")
-            Spacer(Modifier.height(12.dp))
-            ReadOnlyField(
-                "Deadline Tugas (dipanggil kembali)",
-                task?.deadline?.toDate()?.let { DateFormatters.formatDateTime(it) } ?: "-"
-            )
-            Spacer(Modifier.height(12.dp))
-            ReadOnlyField("Deskripsi Tugas (dipanggil kembali)", task?.description ?: "-")
-            Spacer(Modifier.height(16.dp))
+        FormFieldError(state.error, p)
 
-            // Kartu upload
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surface,
+        if (isDone) {
+            FormSpacer()
+            Text(
+                "Tugas ini telah selesai dikumpulkan.",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .cardShadow(shapeRadius = 16.dp)
-            ) {
-                Column(
-                    Modifier.padding(20.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(Icons.Filled.CloudUpload, contentDescription = null, modifier = Modifier.size(40.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text("Upload file tugas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        state.pickedName.ifBlank { "PDF, DOCX, PPTX, Foto atau Video" },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                picker.launch(arrayOf(
-                                    "application/pdf",
-                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                    "image/*",
-                                    "video/*"
-                                ))
-                            },
-                            enabled = !state.isUploading
-                        ) { Text(if (state.pickedUri == null) "Pilih File" else "Ganti File") }
-                        if (state.pickedUri != null) {
-                            TextButton(onClick = viewModel::clearFile, enabled = !state.isUploading) { Text("Hapus") }
-                        }
-                    }
-
-                    if (state.isUploading) {
-                        Spacer(Modifier.height(12.dp))
-                        LinearProgressIndicator(progress = { state.uploadProgress }, modifier = Modifier.fillMaxWidth())
-                        Spacer(Modifier.height(4.dp))
-                        Text("${(state.uploadProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = viewModel::cancelUpload) { Text("Batal Upload") }
-                    }
-                }
-            }
-
-            state.error?.let {
-                Spacer(Modifier.height(8.dp))
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-            }
-
-            if (state.task?.statusEnum != TaskStatus.DONE) {
-                Spacer(Modifier.height(24.dp))
-                PrimaryPillButton(
-                    text = if (state.isUploading) "Mengunggah..." else if (state.pickedUri == null) "Tandai Selesai" else "Submit",
-                    onClick = viewModel::submit,
-                    enabled = !state.isUploading
-                )
-            } else {
-                Spacer(Modifier.height(24.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "Tugas ini telah selesai dikumpulkan.",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-}
-
-@Composable
-private fun ReadOnlyField(label: String, value: String) {
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .cardShadow(shapeRadius = 28.dp)
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            Spacer(Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.bodyLarge)
+                    .background(p.accent.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                    .padding(16.dp),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = p.accent,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

@@ -4,29 +4,35 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavHostController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.kuliahku.ui.components.PillTextField
-import com.kuliahku.ui.components.PrimaryPillButton
+import com.kuliahku.ui.components.*
 
 @Composable
 fun EditProfileScreen(
@@ -35,17 +41,14 @@ fun EditProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbar = remember { SnackbarHostState() }
+    val p = formPalette()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                is EditProfileEvent.Success -> {
-                    navController.popBackStack()
-                }
-                is EditProfileEvent.ShowMessage -> {
-                    snackbarHostState.showSnackbar(event.message)
-                }
+                is EditProfileEvent.Success -> navController.popBackStack()
+                is EditProfileEvent.ShowMessage -> snackbar.showSnackbar(event.message)
             }
         }
     }
@@ -54,103 +57,100 @@ fun EditProfileScreen(
         uri?.let { viewModel.onAvatarPicked(context, it) }
     }
 
-    Scaffold(
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF0E1220) else Color(0xFFFBFCFF),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier.size(48.dp)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape)
-                ) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")
-                }
-                Text(
-                    "Edit Profil",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
-    ) { padding ->
-        Column(
+    FormScreen(
+        snackbarHostState = snackbar,
+        p = p,
+        buttonText = if (state.isSaving) "Menyimpan..." else "Simpan Perubahan",
+        buttonEnabled = !state.isSaving,
+        onButtonClick = { viewModel.save() }
+    ) {
+        FormHeader(
+            title = "Edit Profil",
+            subtitle = "Perbarui data dirimu",
+            p = p,
+            onBack = { navController.popBackStack() }
+        )
+
+        // Avatar
+        Box(
             Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
+                .align(Alignment.CenterHorizontally)
+                .size(112.dp)
+                .clickable { picker.launch("image/*") }
         ) {
-            Spacer(Modifier.height(16.dp))
-
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                AsyncImage(
-                    model = state.avatarPreview ?: state.photoUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { picker.launch("image/*") }
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            TextButton(
-                onClick = { picker.launch("image/*") },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+            AsyncImage(
+                model = state.avatarPreview ?: state.photoUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(p.segmentBg)
+                    .border(1.dp, p.border, CircleShape)
+            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(p.accent)
+                    .border(2.dp, p.background, CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Ganti Foto")
+                Icon(Icons.Filled.CameraAlt, "Ganti foto", tint = Color.White, modifier = Modifier.size(18.dp))
             }
-            Spacer(Modifier.height(24.dp))
-
-            PillTextField(
-                value = state.name,
-                onValueChange = viewModel::onNameChange,
-                placeholder = "Nama Lengkap",
-                error = state.nameError
-            )
-            Spacer(Modifier.height(16.dp))
-            PillTextField(
-                value = state.nim,
-                onValueChange = viewModel::onNimChange,
-                placeholder = "NIM",
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
-                error = state.nimError
-            )
-            Spacer(Modifier.height(16.dp))
-            PillTextField(
-                value = state.prodi,
-                onValueChange = viewModel::onProdiChange,
-                placeholder = "Program Studi",
-                error = state.prodiError
-            )
-            Spacer(Modifier.height(16.dp))
-            PillTextField(
-                value = state.semester,
-                onValueChange = viewModel::onSemesterChange,
-                placeholder = "Semester",
-                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
-                error = state.semesterError
-            )
-
-            state.generalError?.let {
-                Spacer(Modifier.height(16.dp))
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-
-            Spacer(Modifier.height(40.dp))
-            PrimaryPillButton(
-                text = if (state.isSaving) "Menyimpan..." else "Simpan Perubahan",
-                onClick = viewModel::save,
-                enabled = !state.isSaving
-            )
-            Spacer(Modifier.height(24.dp))
         }
+        TextButton(
+            onClick = { picker.launch("image/*") },
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text("Ganti Foto", fontSize = 14.sp, color = p.accent)
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        FormTextField(
+            label = "Nama Lengkap",
+            value = state.name,
+            onValueChange = viewModel::onNameChange,
+            p = p,
+            placeholder = "Masukkan nama lengkap",
+            leadingIcon = Icons.Filled.Person,
+            error = state.nameError
+        )
+        FormSpacer()
+        FormTextField(
+            label = "NIM",
+            value = state.nim,
+            onValueChange = viewModel::onNimChange,
+            p = p,
+            placeholder = "Masukkan NIM",
+            leadingIcon = Icons.Filled.Badge,
+            keyboardType = KeyboardType.Number,
+            error = state.nimError
+        )
+        FormSpacer()
+        FormTextField(
+            label = "Program Studi",
+            value = state.prodi,
+            onValueChange = viewModel::onProdiChange,
+            p = p,
+            placeholder = "Masukkan program studi",
+            leadingIcon = Icons.Filled.School,
+            error = state.prodiError
+        )
+        FormSpacer()
+        FormTextField(
+            label = "Semester",
+            value = state.semester,
+            onValueChange = viewModel::onSemesterChange,
+            p = p,
+            placeholder = "Masukkan semester",
+            leadingIcon = Icons.Filled.DateRange,
+            keyboardType = KeyboardType.Number,
+            error = state.semesterError
+        )
+
+        FormFieldError(state.generalError, p)
     }
 }

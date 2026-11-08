@@ -27,6 +27,7 @@ data class RegisterUiState(
     val semesterError: String? = null,
     val prodiError: String? = null,
     val generalError: String? = null,
+    val isProdiExpanded: Boolean = false,
     val prodiOptions: List<String> = listOf(
         "Teknik Informatika", "Teknik Industri", "Manajemen",
         "Akuntansi", "Sistem Informasi", "Teknik Elektro", "Lainnya"
@@ -74,6 +75,7 @@ class RegisterViewModel @Inject constructor(
             _uiState.update { it.copy(semesterError = "Semester ${Constants.SEMESTER_MIN}-${Constants.SEMESTER_MAX}.") }
     }
     fun onProdiChange(v: String) { _uiState.update { it.copy(prodi = v, prodiError = null, generalError = null) } }
+    fun toggleProdiDropdown() { _uiState.update { it.copy(isProdiExpanded = !it.isProdiExpanded) } }
 
     fun register() {
         val s = _uiState.value

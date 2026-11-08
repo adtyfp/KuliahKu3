@@ -89,6 +89,7 @@ fun AppNavHost(
     navController: NavHostController = rememberNavController(),
     startDestination: String,
     initialDeepLink: String? = null,
+    onDeepLinkHandled: () -> Unit = {},
 
     // true = tampilkan splash
     // false = langsung ke halaman tujuan
@@ -106,6 +107,11 @@ fun AppNavHost(
     }
 
     LaunchedEffect(initialDeepLink, currentRoute) {
+
+        if (initialDeepLink == null) {
+            deepLinkHandled = false
+            return@LaunchedEffect
+        }
 
         if (
             !initialDeepLink.isNullOrBlank() &&
@@ -142,9 +148,19 @@ fun AppNavHost(
                         "add_event?editId=$id&date=$today"
                     )
                 }
+
+                initialDeepLink.startsWith("kuliahku://finance") -> {
+                    navController.navigate(Routes.FINANCE)
+                }
+
+                initialDeepLink.startsWith("kuliahku://material/") -> {
+                    val id = initialDeepLink.removePrefix("kuliahku://material/")
+                    navController.navigate(Routes.materialResult(id))
+                }
             }
 
             deepLinkHandled = true
+            onDeepLinkHandled()
         }
     }
 

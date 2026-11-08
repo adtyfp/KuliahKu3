@@ -82,17 +82,32 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true, error = null) }
             
-            val transcriptResult = com.kuliahku.util.YoutubeExtractor.extractTranscript(url)
-            
-            val materialText = transcriptResult.getOrNull() ?: "URL: $url"
-            
-            // Jika transcript gagal, kita tetap coba minta Gemini analisis URL (beberapa video didukung langsung)
-            // Jika transcript ada, kita kirim transcriptnya agar lebih akurat.
-            val prompt = if (transcriptResult.isSuccess) {
-                "Ini adalah transkrip dari video YouTube. Tolong buatkan ringkasan materi kuliah yang sangat lengkap, poin-poin penting, dan daftar istilah sulit beserta penjelasannya dalam Bahasa Indonesia:\n\n${transcriptResult.getOrThrow()}"
-            } else {
-                "Analisis video YouTube ini: $url. Berikan ringkasan materi yang sangat lengkap dalam Bahasa Indonesia."
+            val ytResult = com.kuliahku.util.YoutubeExtractor.extractData(url)
+            val ytData = ytResult.getOrNull()
+
+            val title = ytData?.title ?: "Materi YouTube"
+            val materialText = buildString {
+                ytData?.let {
+                    appendLine("Judul: ${it.title}")
+                    appendLine("Deskripsi: ${it.description}")
+                    if (!it.transcript.isNullOrBlank()) {
+                        appendLine("\nTranskrip:\n${it.transcript}")
+                    }
+                } ?: append("URL: $url")
             }
+            
+            val prompt = """
+                Analisis konten YouTube berikut dan buatkan ringkasan materi kuliah yang komprehensif.
+                Gunakan informasi dari Judul, Deskripsi, dan Transkrip (jika ada) untuk memastikan akurasi topik.
+                
+                KONTEN:
+                $materialText
+                
+                FORMAT OUTPUT (Bahasa Indonesia):
+                1. Ringkasan Eksekutif (Apa inti dari video ini?)
+                2. Poin-Poin Penting (Detail materi)
+                3. Glosarium (Istilah sulit dan penjelasannya)
+            """.trimIndent()
 
             val aiResult = aiRepo.summarize(prompt)
             val summary = when (aiResult) {
@@ -101,7 +116,7 @@ class ScanViewModel @Inject constructor(
             }
 
             val material = Material(
-                title = "Materi YouTube",
+                title = title,
                 sourceType = MaterialSourceType.YOUTUBE.value,
                 sourceRef = url,
                 extractedText = materialText,
@@ -123,14 +138,33 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true, error = null) }
             
-            val aiResult = aiRepo.summarize(text)
+            val prompt = """
+                Analisis konten dari halaman website berikut dan buatkan ringkasan materi kuliah yang komprehensif.
+                Pastikan ringkasan fokus pada topik utama artikel, abaikan bagian iklan atau navigasi yang mungkin terbawa.
+                
+                KONTEN:
+                $text
+                
+                FORMAT OUTPUT (Bahasa Indonesia):
+                1. Ringkasan Eksekutif
+                2. Poin-Poin Penting
+                3. Glosarium
+            """.trimIndent()
+
+            val aiResult = aiRepo.summarize(prompt)
             val summary = when (aiResult) {
                 is com.kuliahku.ai.AiResult.Success -> aiResult.data
                 else -> "Gagal merangkum konten web secara otomatis."
             }
 
+            val title = if (text.startsWith("Judul: ")) {
+                text.substringAfter("Judul: ").substringBefore("\n").trim()
+            } else {
+                "Materi Web"
+            }
+
             val material = Material(
-                title = "Materi Web",
+                title = title,
                 sourceType = MaterialSourceType.WEB.value,
                 sourceRef = url,
                 extractedText = text,
