@@ -38,3 +38,6 @@
 
 # Jsoup
 -dontwarn org.jsoup.**
+
+# Gemalto JP2
+-dontwarn com.gemalto.jp2.JP2Decoder
